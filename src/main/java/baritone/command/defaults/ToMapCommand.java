@@ -26,8 +26,8 @@ import baritone.api.command.argument.IArgConsumer;
 import baritone.api.command.exception.CommandException;
 import baritone.cache.CachedWorld;
 import baritone.cache.WorldScanner;
-import net.minecraft.block.AirBlock;
-import net.minecraft.block.BlockState;
+import net.minecraft.block.BlockAir;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
 
 import javax.imageio.ImageIO;
@@ -151,7 +151,7 @@ public class ToMapCommand extends Command {
                     for (int z = nw[1]; z < nw[1] + 512; z++) {
                         for (int y = 256; y >= 0; y--) {
                             try {
-                                BlockState bs = cr.getBlock(x, y, z);
+                                IBlockState bs = cr.getBlock(x, y, z);
                                 String id;
                                 if (bs == null) {
                                     continue;
@@ -171,12 +171,12 @@ public class ToMapCommand extends Command {
                                         return;
                                     }
                                 }
-                                if (bs == null || !(bs.getBlock() instanceof AirBlock)) { // we must show this block
+                                if (bs == null || !(bs.getBlock() instanceof BlockAir)) { // we must show this block
                                     topView.get(x).put(z, id);
                                     break;
                                 }
                             } catch (Exception e) {
-//                            System.out.println("Couldn't get BlockState for " + x + " " + y + " " + z);
+//                            System.out.println("Couldn't get IBlockState for " + x + " " + y + " " + z);
                             }
                         }
                         if (!topView.containsKey(x)) {
@@ -241,7 +241,7 @@ public class ToMapCommand extends Command {
                 }
                 logDirect("Finished coloring");
                 try {
-                    File outputFile = Minecraft.getInstance().gameDir.toPath()
+                    File outputFile = Minecraft.getMinecraft().gameDir.toPath()
                             .resolve("screenshots")
                             .resolve(mc.getCurrentServerData().serverIP + "." + rX + "." + rZ + ".png").toFile();
                     ImageIO.write(result, "png", outputFile);
