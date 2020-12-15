@@ -151,7 +151,7 @@ public class ToMapCommand extends Command {
                     for (int z = nw[1]; z < nw[1] + 512; z++) {
                         for (int y = 256; y >= 0; y--) {
                             try {
-                                IBlockState bs = cr.getBlock(x, y, z);
+                                IBlockState bs = cr.getBlock(x & 511, y, z & 511);
                                 String id;
                                 if (bs == null) {
                                     continue;
