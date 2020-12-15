@@ -179,10 +179,8 @@ public class ToMapCommand extends Command {
 //                            System.out.println("Couldn't get IBlockState for " + x + " " + y + " " + z);
                             }
                         }
-                        if (!topView.containsKey(x)) {
-                            if (!topView.get(x).containsKey(z)) {
-                                topView.get(x).put(z, DEFAULT_BLOCK_ID); // this is definitely not accurate
-                            }
+                        if (!topView.get(x).containsKey(z)) {
+                            topView.get(x).put(z, DEFAULT_BLOCK_ID); // this is definitely not accurate
                         }
                     }
                 }
