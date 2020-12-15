@@ -112,6 +112,7 @@ public class ToMapCommand extends Command {
         WorldScanner.INSTANCE.repack(ctx);
         ctx.worldData().getCachedWorld().save();
 //        ctx.worldData().getCachedWorld().reloadAllFromDisk();
+        logDirect(((CachedWorld) ctx.worldData().getCachedWorld()).getRegion(0,0).getBlock(10,10,10).toString());
         System.out.println("Loading cached chunks");
 //        baritone.getWorldProvider().getCurrentWorld().getCachedWorld().reloadAllFromDisk();
 //        if(!isEveryChunkedLoaded()){
@@ -122,7 +123,7 @@ public class ToMapCommand extends Command {
             int rX = regionCoords[0];
             int rZ = regionCoords[1];
             executor.execute(saveToImage(rX, rZ));
-//            saveToImage(rX, rZ).start();
+//            saveToImage(rX, rZ).run();
         }
         executor.shutdown();
         while(!executor.isTerminated());
@@ -133,103 +134,70 @@ public class ToMapCommand extends Command {
             @Override
             public void run() {
                 CachedWorld cw = (CachedWorld) ctx.worldData().getCachedWorld(); // is this cast a fair assumption?
-                cw.tryLoadFromDisk(rX, rZ);
+                cw.tryLoadFromDisk(rX,rZ);
                 ICachedRegion cr = cw.getRegion(rX, rZ);
 //            System.out.println("cr is null: " + (cr == null));
 //            if (cr == null)
 //                continue;
-                Map<String, int[]> cornerBlockCoordinatesForZeroZero = getBlockCoordsOfRegionCorners(rX, rZ);
-                int[] nw = cornerBlockCoordinatesForZeroZero.get("NW");
-                Map<Integer, Map<Integer, String>> topView = new LinkedHashMap<>(); // in block coordinates
-                Pattern p = Pattern.compile("Block\\{minecraft:(.*)\\}");
+                String[][] topView = new String[512][512]; // in region local block coordinates
+                Pattern p = Pattern.compile("minecraft:(.*?)(\\[.*\\])?$");
                 logDirect("Getting top blocks for region " + rX + " " + rZ);
-                for (int x = nw[0]; x < nw[0] + 512; x++) {
-                    if (!topView.containsKey(x)) {
-                        HashMap<Integer, String> zId = new LinkedHashMap<>();
-                        topView.put(x, zId);
-                    }
-                    for (int z = nw[1]; z < nw[1] + 512; z++) {
+                for (int x = 0; x < 512; x++) {
+                    for (int z = 0; z < 512; z++) {
                         for (int y = 256; y >= 0; y--) {
                             try {
-                                IBlockState bs = cr.getBlock(x & 511, y, z & 511);
+                                IBlockState bs = cr.getBlock(x, y, z);
+//                                bs = ((CachedWorld) ctx.worldData().getCachedWorld()).getOrCreateRegion(rX,rZ).getBlock(x,y,z);
                                 String id;
                                 if (bs == null) {
                                     continue;
 //                                id = DEFAULT_BLOCK_ID; // does anyone have a better idea?
-                                } else {
-                                    try {
-                                        Matcher m = p.matcher(bs.toString());
-                                        if (m.find())
-                                            id = m.group(1);
-                                        else {
-                                            System.out.println("Failed to find block id for " + bs.toString());
-                                            return;
-                                        }
-                                    } catch (Exception e) {
-                                        System.out.println("No match found for " + bs.toString());
-                                        logDirect("No match found for " + bs.toString());
+                                }
+                                try {
+                                    Matcher m = p.matcher(bs.toString());
+                                    if (m.find())
+                                        id = m.group(1);
+                                    else {
+                                        System.out.println("Failed to find block id for " + bs.toString());
                                         return;
                                     }
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                    System.out.println("No match found for " + bs.toString());
+                                    logDirect("No match found for " + bs.toString());
+                                    return;
                                 }
-                                if (bs == null || !(bs.getBlock() instanceof BlockAir)) { // we must show this block
-                                    topView.get(x).put(z, id);
+                                if (!(bs.getBlock() instanceof BlockAir)) { // we must show this block
+                                    topView[x][z]=id;
                                     break;
                                 }
                             } catch (Exception e) {
+                                e.printStackTrace();
 //                            System.out.println("Couldn't get IBlockState for " + x + " " + y + " " + z);
                             }
                         }
-                        if (!topView.get(x).containsKey(z)) {
-                            topView.get(x).put(z, DEFAULT_BLOCK_ID); // this is definitely not accurate
+                        if (topView[x][z]==null) {
+                            topView[x][z]=DEFAULT_BLOCK_ID; // this is definitely not accurate
                         }
                     }
                 }
                 logDirect("Finished scanning");
-                logDirect("Asserting size");
-                if (topView.isEmpty()) {
-                    System.out.println("Topview is empty: " + topView.isEmpty() + " for " + rX + " " + rZ);
-                    return;
-                }
-                logDirect("Calculate coordinate offsets");
-                int minX = Integer.MAX_VALUE;
-                int maxX = Integer.MIN_VALUE;
-                int minZ = Integer.MAX_VALUE;
-                int maxZ = Integer.MIN_VALUE;
-                Integer offsetX = null;
-                Integer offsetZ = null;
-
-                minX = Collections.min(topView.keySet());
-                maxX = Collections.max(topView.keySet());
-                for (Map<Integer, String> zId : topView.values()) {
-                    if (!zId.keySet().isEmpty()) {
-                        int minZForThisXAxis = Collections.min(zId.keySet());
-                        if (minZForThisXAxis < minZ)
-                            minZ = minZForThisXAxis;
-
-                        int maxZForThisXAxis = Collections.max(zId.keySet());
-                        if (maxZForThisXAxis > maxZ)
-                            maxZ = maxZForThisXAxis;
-                    }
-                }
-
-                offsetX = -minX;
-                offsetZ = -minZ;
                 BufferedImage result = new BufferedImage(
                         512,
                         512,
                         BufferedImage.TYPE_INT_ARGB);
                 logDirect("Starting coloring");
-                for (int x = minX; x < maxX + offsetX; x++) {
-                    for (int z = minZ; z < maxZ + offsetZ; z++) {
+                for (int x = 0; x < 512; x++) {
+                    for (int z = 0; z < 512; z++) {
                         String blockId = null;
                         try {
-                            blockId = topView.get(x).getOrDefault(z, DEFAULT_BLOCK_ID);
+                            blockId = topView[x][z];
                             if (!blockId.equals(DEFAULT_BLOCK_ID)) {
                                 BufferedImage textureAtCoord = getTextureForBlockId(blockId);
                                 Color c = averageColor(textureAtCoord, blockId);
-                                result.setRGB(x + offsetX, z + offsetZ, c.getRGB());
+                                result.setRGB(x, z, c.getRGB());
                             } else {
-                                result.setRGB(x + offsetX, z + offsetZ, Color.TRANSLUCENT);
+                                result.setRGB(x, z, Color.TRANSLUCENT);
                             }
                         } catch (IOException e) {
                             System.out.println("Error setting color for " + blockId + " at " + x + " " + z);
@@ -241,12 +209,12 @@ public class ToMapCommand extends Command {
                 try {
                     File outputFile = Minecraft.getMinecraft().gameDir.toPath()
                             .resolve("screenshots")
-                            .resolve(mc.getCurrentServerData().serverIP + "." + rX + "." + rZ + ".png").toFile();
+                            .resolve(/*mc.getCurrentServerData().serverIP + "." + */rX + "." + rZ + ".png").toFile();
                     ImageIO.write(result, "png", outputFile);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                cw.uncacheRegion(rX, rZ);
+//                cw.uncacheRegion(rX, rZ);
             }
         };
     }
@@ -276,8 +244,7 @@ public class ToMapCommand extends Command {
     }
 
     private BufferedImage getTextureForBlockId(String blockId) throws IOException {
-        String base = "/home/nexor/.minecraft/versions/1.15.2-OptiFine_HD_U_G5_pre1/" +
-                "1.15.2-OptiFine_HD_U_G5_pre1/assets/minecraft/textures/block/";
+        String base = "/home/<user>/.minecraft/versions/1.12.2/1.12.2/assets/minecraft/textures/blocks/";
         if (cachedTextures.containsKey(blockId))
             return cachedTextures.get(blockId);
         System.out.println("Getting texture for " + blockId);
@@ -293,29 +260,6 @@ public class ToMapCommand extends Command {
             texture = ImageIO.read(Files.newInputStream(debug));
         cachedTextures.put(blockId, texture);
         return texture;
-    }
-
-    public static Map<String, int[]> getBlockCoordsOfRegionCorners(int x, int z) {
-        return new HashMap<String, int[]>() {
-            {
-                put("NW", new int[]{
-                        x * 512,
-                        z * 512,
-                });
-                put("NE", new int[]{
-                        (x + 1) * 512 - 1,
-                        z * 512,
-                });
-                put("SW", new int[]{
-                        x * 512,
-                        (z + 1) * 512 - 1,
-                });
-                put("SE", new int[]{
-                        (x + 1) * 512 - 1,
-                        (z + 1) * 512 - 1,
-                });
-            }
-        };
     }
 
     @Override
