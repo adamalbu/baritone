@@ -254,6 +254,20 @@ public final class CachedWorld implements ICachedWorld, Helper {
     }
 
     /**
+     * Returns the region at the specified region coordinates.
+     * It does not mess with the chachedRegions map.
+     *
+     * @param regionX The region X coordinate
+     * @param regionZ The region Z coordinate
+     * @return The region located at the specified coordinates
+     */
+    public synchronized CachedRegion loadRegionForMapcreation(int regionX, int regionZ){
+        CachedRegion newRegion = new CachedRegion(regionX, regionZ, dimension);
+        newRegion.load(this.directory);
+        return newRegion;
+    }
+
+    /**
      * Returns the region at the specified region coordinates. If a
      * region is not found, then a new one is created.
      *
