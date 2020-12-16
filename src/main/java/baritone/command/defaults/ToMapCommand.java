@@ -91,22 +91,6 @@ public class ToMapCommand extends Command {
 //        return fileNamesForRegions;
     }
 
-    private boolean isEveryChunkedLoaded() {
-        ctx.worldData().getCachedWorld().reloadAllFromDisk();
-        boolean everyChunkWasLoaded = true;
-        for (int[] regionCoords : getRegionCoordsOnDisk()) {
-            int rX = regionCoords[0];
-            int rZ = regionCoords[1];
-            CachedWorld cw = (CachedWorld) ctx.worldData().getCachedWorld(); // is this cast a fair assumption?
-            cw.tryLoadFromDisk(rX, rZ);
-            ICachedRegion cr = cw.getRegion(rX, rZ);
-            System.out.println("Region " + rX + " " + rZ + " was loaded: " + (cr != null));
-            everyChunkWasLoaded &= cr != null;
-        }
-        return everyChunkWasLoaded;
-    }
-
-
     @Override
     public void execute(String label, IArgConsumer args) throws CommandException {
         WorldScanner.INSTANCE.repack(ctx);
@@ -115,9 +99,6 @@ public class ToMapCommand extends Command {
         logDirect(((CachedWorld) ctx.worldData().getCachedWorld()).getRegion(0,0).getBlock(10,10,10).toString());
         System.out.println("Loading cached chunks");
 //        baritone.getWorldProvider().getCurrentWorld().getCachedWorld().reloadAllFromDisk();
-//        if(!isEveryChunkedLoaded()){
-//            return;
-//        }
 //        System.out.println("All cached chunks loaded succesfully");
         for (int[] regionCoords : getRegionCoordsOnDisk()) {
             int rX = regionCoords[0];
