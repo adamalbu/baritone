@@ -17,22 +17,19 @@
 
 package baritone.command.defaults;
 
-import baritone.Baritone;
 import baritone.api.IBaritone;
 import baritone.api.cache.ICachedRegion;
-import baritone.api.cache.ICachedWorld;
 import baritone.api.command.Command;
 import baritone.api.command.argument.IArgConsumer;
 import baritone.api.command.exception.CommandException;
 import baritone.cache.CachedWorld;
+import baritone.cache.WorldData;
 import baritone.cache.WorldScanner;
-import net.minecraft.block.BlockAir;
 import net.minecraft.block.state.IBlockState;
-import net.minecraft.client.Minecraft;
 import net.minecraft.init.Blocks;
 
 import javax.imageio.ImageIO;
-import java.awt.*;
+import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -41,11 +38,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
@@ -57,6 +51,7 @@ public class ToMapCommand extends Command {
     private static HashMap<String, Color> cachedColors;
     private static Color DEFAULT_BLOCK_COLOR = new Color(Color.TRANSLUCENT, true);
     private static Pattern BLOCK_ID_PATTERN = Pattern.compile("minecraft:(.*?)(\\[.*\\])?$");
+    private static Pattern REGION_FILE_NAME_PATTERN = Pattern.compile("^r\\.(-?\\d+)\\.(-?\\d+)\\.bcr$");
     private static String TEXTURE_BASE_PATH = "/home/<user>/.minecraft/versions/1.12.2/1.12.2/assets/minecraft/textures/blocks/";
     private ExecutorService executor;
 
@@ -67,29 +62,19 @@ public class ToMapCommand extends Command {
     }
 
     private List<int[]> getRegionCoordsOnDisk() {
-        return Arrays.asList(
-                new int[]{1, 1},
-                new int[]{1, 0},
-                new int[]{0, 1},
-                new int[]{0, 0},
-                new int[]{-1, 0},
-                new int[]{0, -1},
-                new int[]{-1, -1}
-        );
-//        System.out.println("Testing region coords on disk");
-//        String[] regionCoordsOnDisk = new File(
-//                Baritone.getDir(),
-//                mc.getCurrentServerData().serverIP + "/DIM0/cache").list();
-//        List<int[]> fileNamesForRegions = new ArrayList<>();
-//        for (String regionFileName : regionCoordsOnDisk) {
-//            Matcher m = Pattern.compile("r\\.(-?\\d+)\\.(-?\\d+)\\.bcr").matcher(regionFileName);
-//            if (m.find()) {
-//                int regionX = Integer.parseInt(m.group(1));
-//                int regionZ = Integer.parseInt(m.group(2));
-//                fileNamesForRegions.add(new int[]{regionX, regionZ});
-//            }
-//        }
-//        return fileNamesForRegions;
+        logDebug("Discovering region coords from disk");
+        Path cacheDir = ((WorldData)ctx.worldData()).directory.resolve("cache");// another fair assumption?
+        String[] regionCoordsOnDisk = new File(cacheDir.toString()).list();
+        List<int[]> fileNamesForRegions = new ArrayList<>();
+        for (String regionFileName : regionCoordsOnDisk) {
+            Matcher m = REGION_FILE_NAME_PATTERN.matcher(regionFileName);
+            if (m.find()) {
+                int regionX = Integer.parseInt(m.group(1));
+                int regionZ = Integer.parseInt(m.group(2));
+                fileNamesForRegions.add(new int[]{regionX, regionZ});
+            }
+        }
+        return fileNamesForRegions;
     }
 
     @Override
@@ -101,6 +86,13 @@ public class ToMapCommand extends Command {
             int rZ = regionCoords[1];
             executor.execute(saveToImage(rX, rZ));
         }
+        executor.shutdown();
+        new Thread() {
+            public void run() {
+                while (!executor.isTerminated());
+                logDirect("Done mapping");
+            }
+        }.start();
 /*
         //todo: make options for rendering
         // all cached regions,(use executor for this)
@@ -146,7 +138,7 @@ public class ToMapCommand extends Command {
                 try {
                     File screenshotsDir = new File(mc.gameDir, "screenshots");
                     screenshotsDir.mkdir();
-                    File outputFile = new File(screenshotsDir, mc.getCurrentServerData().serverIP + "." + rX + "." + rZ + ".png");
+                    File outputFile = new File(screenshotsDir, (mc.isSingleplayer() ? mc.getIntegratedServer().getWorldName() : mc.getCurrentServerData().serverIP) + "." + rX + "." + rZ + ".png");
                     ImageIO.write(result, "png", outputFile);
                 } catch (IOException e) {
                     logDirect("Failed! Image could not be written.(see log)");
@@ -157,8 +149,8 @@ public class ToMapCommand extends Command {
     }
 
     public Color averageColor(BufferedImage bi) {
-        int x1 = 16;
-        int z1 = 16;
+        int x1 = bi.getWidth();
+        int z1 = bi.getHeight();
         long sumr = 0, sumg = 0, sumb = 0;
         for (int x = 0; x < x1; x++) {
             for (int z = 0; z < z1; z++) {
@@ -168,7 +160,7 @@ public class ToMapCommand extends Command {
                 sumb += pixel.getBlue();
             }
         }
-        float num = 16 * 16 * 256;
+        float num = x1 * z1 * 256;
         return new Color(sumr / num, sumg / num, sumb / num);
     }
 
@@ -179,7 +171,7 @@ public class ToMapCommand extends Command {
         if (blockId == null) {
             return DEFAULT_BLOCK_COLOR;
         }
-        System.out.println("Getting texture for " + blockId);
+        logDebug("Getting texture for " + blockId);
         Path withTopPath = Paths.get(TEXTURE_BASE_PATH + blockId + "_top.png");
         Path withoutTopPath = Paths.get(TEXTURE_BASE_PATH + blockId + ".png");
         Path debug = Paths.get(TEXTURE_BASE_PATH + "debug.png");
