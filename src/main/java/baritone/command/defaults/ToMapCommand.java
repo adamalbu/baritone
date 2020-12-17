@@ -22,11 +22,13 @@ import baritone.api.cache.ICachedRegion;
 import baritone.api.command.Command;
 import baritone.api.command.argument.IArgConsumer;
 import baritone.api.command.exception.CommandException;
+import baritone.Baritone;
 import baritone.cache.CachedWorld;
 import baritone.cache.WorldData;
 import baritone.cache.WorldScanner;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.init.Blocks;
+import net.minecraft.util.ResourceLocation;
 
 import javax.imageio.ImageIO;
 import java.awt.Color;
@@ -39,6 +41,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -49,16 +52,15 @@ import java.util.stream.Stream;
 public class ToMapCommand extends Command {
 
     private static HashMap<String, Color> cachedColors;
+    private static HashSet<String> COLOR_EXCEPTIONS = new HashSet<>(Arrays.asList("grass_block"));
     private static Color DEFAULT_BLOCK_COLOR = new Color(Color.TRANSLUCENT, true);
     private static Pattern BLOCK_ID_PATTERN = Pattern.compile("minecraft:(.*?)(\\[.*\\])?$");
     private static Pattern REGION_FILE_NAME_PATTERN = Pattern.compile("^r\\.(-?\\d+)\\.(-?\\d+)\\.bcr$");
-    private static String TEXTURE_BASE_PATH = "/home/<user>/.minecraft/versions/1.12.2/1.12.2/assets/minecraft/textures/blocks/";
-    private ExecutorService executor;
+    private static String TEXTURE_BASE_PATH = "textures/blocks/";
 
     public ToMapCommand(IBaritone baritone) {
         super(baritone, "tomap");
         cachedColors = new HashMap<>();
-        executor = Executors.newFixedThreadPool(5);
     }
 
     private List<int[]> getRegionCoordsOnDisk() {
@@ -79,8 +81,11 @@ public class ToMapCommand extends Command {
 
     @Override
     public void execute(String label, IArgConsumer args) throws CommandException {
-        WorldScanner.INSTANCE.repack(ctx);
-        ctx.worldData().getCachedWorld().save();
+        if (Baritone.settings().chunkCaching.value == true) {
+            WorldScanner.INSTANCE.repack(ctx);
+            ctx.worldData().getCachedWorld().save();
+        }
+        ExecutorService executor = Executors.newFixedThreadPool(5);
         for (int[] regionCoords : getRegionCoordsOnDisk()) {
             int rX = regionCoords[0];
             int rZ = regionCoords[1];
@@ -111,10 +116,12 @@ public class ToMapCommand extends Command {
                 CachedWorld cw = (CachedWorld) ctx.worldData().getCachedWorld(); // is this cast a fair assumption?
                 if (cw == null) {
                     logDirect("Failed! No world saved.");
+                    return;
                 }
                 ICachedRegion cr = cw.loadRegionForMapcreation(rX, rZ);
                 if (cr == null) {
                     logDirect("Failed! No regionfile saved at this location.");
+                    return;
                 }
                 BufferedImage result = new BufferedImage(512, 512, BufferedImage.TYPE_INT_ARGB);
                 logDirect("Getting top blocks for region " + rX + " " + rZ);
@@ -172,15 +179,15 @@ public class ToMapCommand extends Command {
             return DEFAULT_BLOCK_COLOR;
         }
         logDebug("Getting texture for " + blockId);
-        Path withTopPath = Paths.get(TEXTURE_BASE_PATH + blockId + "_top.png");
-        Path withoutTopPath = Paths.get(TEXTURE_BASE_PATH + blockId + ".png");
-        Path debug = Paths.get(TEXTURE_BASE_PATH + "debug.png");
+        ResourceLocation withTopPath = new ResourceLocation(TEXTURE_BASE_PATH + blockId + "_top.png");
+        ResourceLocation withoutTopPath = new ResourceLocation(TEXTURE_BASE_PATH + blockId + ".png");
         BufferedImage texture = null;
-        if (Files.exists(withTopPath))
-            texture = ImageIO.read(Files.newInputStream(withTopPath));
-        else if (Files.exists(withoutTopPath))
-            texture = ImageIO.read(Files.newInputStream(withoutTopPath));
-        Color color = texture != null ? averageColor(texture) : new Color(blockstate.getMaterial().getMaterialMapColor().colorValue);
+        try {
+            texture = ImageIO.read(mc.getResourceManager().getResource(withTopPath).getInputStream());
+        } catch (IOException e) { try {
+            texture = ImageIO.read(mc.getResourceManager().getResource(withoutTopPath).getInputStream());
+        } catch (IOException e2) {}}
+        Color color = (texture != null && !COLOR_EXCEPTIONS.contains(blockId)) ? averageColor(texture) : new Color(blockstate.getMaterial().getMaterialMapColor().colorValue);
         cachedColors.put(blockId, color);
         return color;
     }
