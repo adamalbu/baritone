@@ -29,6 +29,7 @@ import baritone.cache.WorldScanner;
 import net.minecraft.block.BlockAir;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
+import net.minecraft.init.Blocks;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -93,19 +94,20 @@ public class ToMapCommand extends Command {
     public void execute(String label, IArgConsumer args) throws CommandException {
         WorldScanner.INSTANCE.repack(ctx);
         ctx.worldData().getCachedWorld().save();
-//        ctx.worldData().getCachedWorld().reloadAllFromDisk();
-        logDirect(((CachedWorld) ctx.worldData().getCachedWorld()).getRegion(0,0).getBlock(10,10,10).toString());
-        System.out.println("Loading cached chunks");
-//        baritone.getWorldProvider().getCurrentWorld().getCachedWorld().reloadAllFromDisk();
-//        System.out.println("All cached chunks loaded succesfully");
         for (int[] regionCoords : getRegionCoordsOnDisk()) {
             int rX = regionCoords[0];
             int rZ = regionCoords[1];
             executor.execute(saveToImage(rX, rZ));
-//            saveToImage(rX, rZ).run();
         }
-        executor.shutdown();
-        while(!executor.isTerminated());
+/*
+        //todo: make options for rendering
+        // all cached regions,(use executor for this)
+        // a specific one(region -1 3),
+        // a specific region at a given blockpos(pos 1337420 322),
+        // default to the region the player is standing in
+        // use the args parameter for that
+        executor.execute(saveToImage((int) Math.floor(mc.player.posX / 512), (int) Math.floor(mc.player.posZ / 512)));
+*/
     }
 
     private Runnable saveToImage(int rX, int rZ) {
@@ -113,79 +115,63 @@ public class ToMapCommand extends Command {
             @Override
             public void run() {
                 CachedWorld cw = (CachedWorld) ctx.worldData().getCachedWorld(); // is this cast a fair assumption?
-                cw.tryLoadFromDisk(rX,rZ);
-                ICachedRegion cr = cw.getRegion(rX, rZ);
-//            System.out.println("cr is null: " + (cr == null));
-//            if (cr == null)
-//                continue;
-                String[][] topView = new String[512][512]; // in region local block coordinates
+                if (cw == null) {
+                    logDirect("Failed! No world saved.");
+                }
+                ICachedRegion cr = cw.loadRegionForMapcreation(rX, rZ);
+                if (cr == null) {
+                    logDirect("Failed! No regionfile saved at this location.");
+                }
+                BufferedImage result = new BufferedImage(512, 512, BufferedImage.TYPE_INT_ARGB);
                 Pattern p = Pattern.compile("minecraft:(.*?)(\\[.*\\])?$");
                 logDirect("Getting top blocks for region " + rX + " " + rZ);
                 for (int x = 0; x < 512; x++) {
                     for (int z = 0; z < 512; z++) {
-                        for (int y = 256; y >= 0; y--) {
-                            try {
-                                IBlockState bs = cr.getBlock(x, y, z);
+                        for (int y = 255; y >= 0; y--) {
+                            IBlockState bs = cr.getBlock(x, y, z);
 //                                bs = ((CachedWorld) ctx.worldData().getCachedWorld()).getOrCreateRegion(rX,rZ).getBlock(x,y,z);
-                                String id;
-                                if (bs == null) {
+                            if (bs != null) {
+                                if (bs.getBlock().equals(Blocks.AIR)) {
                                     continue;
-//                                id = DEFAULT_BLOCK_ID; // does anyone have a better idea?
-                                }
-                                try {
-                                    Matcher m = p.matcher(bs.toString());
-                                    if (m.find())
-                                        id = m.group(1);
-                                    else {
-                                        System.out.println("Failed to find block id for " + bs.toString());
-                                        return;
+                                } else {
+                                    try {
+                                        String id;
+                                        try {
+                                            Matcher m = p.matcher(bs.toString());
+                                            if (m.find())
+                                                id = m.group(1);
+                                            else {
+                                                System.out.println("Failed to find block id for " + bs.toString());
+                                                return;
+                                            }
+                                        } catch (Exception e) {
+                                            e.printStackTrace();
+                                            System.out.println("No match found for " + bs.toString());
+                                            logDirect("No match found for " + bs.toString());
+                                            return;
+                                        }
+                                        if (!(bs.getBlock() instanceof BlockAir)) { // we must show this block
+                                            result.setRGB(x, z, getColorForBlockId(id).getRGB());
+                                            break;
+                                        }
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
+        //                            System.out.println("Couldn't get IBlockState for " + x + " " + y + " " + z);
                                     }
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                    System.out.println("No match found for " + bs.toString());
-                                    logDirect("No match found for " + bs.toString());
-                                    return;
                                 }
-                                if (!(bs.getBlock() instanceof BlockAir)) { // we must show this block
-                                    topView[x][z]=id;
-                                    break;
-                                }
-                            } catch (Exception e) {
-                                e.printStackTrace();
-//                            System.out.println("Couldn't get IBlockState for " + x + " " + y + " " + z);
                             }
                         }
                     }
                 }
-                logDirect("Finished scanning");
-                BufferedImage result = new BufferedImage(
-                        512,
-                        512,
-                        BufferedImage.TYPE_INT_ARGB);
-                logDirect("Starting coloring");
-                for (int x = 0; x < 512; x++) {
-                    for (int z = 0; z < 512; z++) {
-                        String blockId = null;
-                        try {
-                            blockId = topView[x][z];
-                            Color c = getColorForBlockId(blockId);
-                            result.setRGB(x, z, c.getRGB());
-                        } catch (IOException e) {
-                            System.out.println("Error setting color for " + blockId + " at " + x + " " + z);
-                            e.printStackTrace();
-                        }
-                    }
-                }
-                logDirect("Finished coloring");
                 try {
-                    File outputFile = Minecraft.getMinecraft().gameDir.toPath()
-                            .resolve("screenshots")
-                            .resolve(/*mc.getCurrentServerData().serverIP + "." + */rX + "." + rZ + ".png").toFile();
+                    File screenshotsDir = new File(mc.gameDir, "screenshots");
+                    screenshotsDir.mkdir();
+                    File outputFile = new File(screenshotsDir, mc.getCurrentServerData().serverIP + "." + rX + "." + rZ + ".png");
                     ImageIO.write(result, "png", outputFile);
                 } catch (IOException e) {
+                    logDirect("Failed! Image could not be written.(see log)");
                     e.printStackTrace();
                 }
-//                cw.uncacheRegion(rX, rZ);
             }
         };
     }
