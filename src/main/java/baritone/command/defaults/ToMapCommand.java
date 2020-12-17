@@ -53,15 +53,13 @@ import java.util.stream.Stream;
 
 public class ToMapCommand extends Command {
 
-    private HashMap<String, Color> cachedColors;
-    private HashMap<String, BufferedImage> cachedTextures;
-    private static String DEFAULT_BLOCK_ID = "ice";
+    private static HashMap<String, Color> cachedColors;
+    private static Color DEFAULT_BLOCK_COLOR = new Color(Color.TRANSLUCENT, true);
     private ExecutorService executor;
 
     public ToMapCommand(IBaritone baritone) {
         super(baritone, "tomap");
         cachedColors = new HashMap<>();
-        cachedTextures = new HashMap<>();
         executor = Executors.newFixedThreadPool(5);
     }
 
@@ -157,9 +155,6 @@ public class ToMapCommand extends Command {
 //                            System.out.println("Couldn't get IBlockState for " + x + " " + y + " " + z);
                             }
                         }
-                        if (topView[x][z]==null) {
-                            topView[x][z]=DEFAULT_BLOCK_ID; // this is definitely not accurate
-                        }
                     }
                 }
                 logDirect("Finished scanning");
@@ -173,13 +168,8 @@ public class ToMapCommand extends Command {
                         String blockId = null;
                         try {
                             blockId = topView[x][z];
-                            if (!blockId.equals(DEFAULT_BLOCK_ID)) {
-                                BufferedImage textureAtCoord = getTextureForBlockId(blockId);
-                                Color c = averageColor(textureAtCoord, blockId);
-                                result.setRGB(x, z, c.getRGB());
-                            } else {
-                                result.setRGB(x, z, Color.TRANSLUCENT);
-                            }
+                            Color c = getColorForBlockId(blockId);
+                            result.setRGB(x, z, c.getRGB());
                         } catch (IOException e) {
                             System.out.println("Error setting color for " + blockId + " at " + x + " " + z);
                             e.printStackTrace();
@@ -200,34 +190,29 @@ public class ToMapCommand extends Command {
         };
     }
 
-    public Color averageColor(BufferedImage bi, String blockId) {
-        if (!cachedColors.containsKey(blockId)) {
-            System.out.println("Getting average color for " + blockId);
-            int x1 = 16;
-            int z1 = 16;
-            long sumr = 0, sumg = 0, sumb = 0;
-            for (int x = 0; x < x1; x++) {
-                for (int z = 0; z < z1; z++) {
-                    Color pixel = new Color(bi.getRGB(x, z));
-                    sumr += pixel.getRed();
-                    sumg += pixel.getGreen();
-                    sumb += pixel.getBlue();
-                }
-            }
-            float num = 16 * 16 * 256;
-            try {
-                cachedColors.put(blockId, new Color(sumr / num, sumg / num, sumb / num));
-            } catch (Exception e) {
-                cachedColors.put(blockId, new Color(Color.TRANSLUCENT));
+    public Color averageColor(BufferedImage bi) {
+        int x1 = 16;
+        int z1 = 16;
+        long sumr = 0, sumg = 0, sumb = 0;
+        for (int x = 0; x < x1; x++) {
+            for (int z = 0; z < z1; z++) {
+                Color pixel = new Color(bi.getRGB(x, z));
+                sumr += pixel.getRed();
+                sumg += pixel.getGreen();
+                sumb += pixel.getBlue();
             }
         }
-        return cachedColors.get(blockId);
+        float num = 16 * 16 * 256;
+        return new Color(sumr / num, sumg / num, sumb / num);
     }
 
-    private BufferedImage getTextureForBlockId(String blockId) throws IOException {
+    private Color getColorForBlockId(String blockId) throws IOException {
+        if (cachedColors.containsKey(blockId))
+            return cachedColors.get(blockId);
+        if (blockId == null) {
+            return DEFAULT_BLOCK_COLOR;
+        }
         String base = "/home/<user>/.minecraft/versions/1.12.2/1.12.2/assets/minecraft/textures/blocks/";
-        if (cachedTextures.containsKey(blockId))
-            return cachedTextures.get(blockId);
         System.out.println("Getting texture for " + blockId);
         Path withTopPath = Paths.get(base + blockId + "_top.png");
         Path withoutTopPath = Paths.get(base + blockId + ".png");
@@ -239,8 +224,9 @@ public class ToMapCommand extends Command {
             texture = ImageIO.read(Files.newInputStream(withoutTopPath));
         else
             texture = ImageIO.read(Files.newInputStream(debug));
-        cachedTextures.put(blockId, texture);
-        return texture;
+        Color color = averageColor(texture);
+        cachedColors.put(blockId, color);
+        return color;
     }
 
     @Override
