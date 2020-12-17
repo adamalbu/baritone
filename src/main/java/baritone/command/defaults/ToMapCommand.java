@@ -134,7 +134,7 @@ public class ToMapCommand extends Command {
                                 continue;
                             }
                             try {
-                                result.setRGB(x, z, getColorForBlockId(guessBlockId(bs)).getRGB());
+                                result.setRGB(x, z, getColorForBlock(bs).getRGB());
                             } catch (IOException e) {
                                 e.printStackTrace();
                                 result.setRGB(x, z, DEFAULT_BLOCK_COLOR.getRGB());
@@ -172,7 +172,8 @@ public class ToMapCommand extends Command {
         return new Color(sumr / num, sumg / num, sumb / num);
     }
 
-    private Color getColorForBlockId(String blockId) throws IOException {
+    private Color getColorForBlock(IBlockState blockstate) throws IOException {
+        String blockId = guessBlockId(blockstate);
         if (cachedColors.containsKey(blockId))
             return cachedColors.get(blockId);
         if (blockId == null) {
@@ -182,14 +183,12 @@ public class ToMapCommand extends Command {
         Path withTopPath = Paths.get(TEXTURE_BASE_PATH + blockId + "_top.png");
         Path withoutTopPath = Paths.get(TEXTURE_BASE_PATH + blockId + ".png");
         Path debug = Paths.get(TEXTURE_BASE_PATH + "debug.png");
-        BufferedImage texture;
+        BufferedImage texture = null;
         if (Files.exists(withTopPath))
             texture = ImageIO.read(Files.newInputStream(withTopPath));
         else if (Files.exists(withoutTopPath))
             texture = ImageIO.read(Files.newInputStream(withoutTopPath));
-        else
-            texture = ImageIO.read(Files.newInputStream(debug));
-        Color color = averageColor(texture);
+        Color color = texture != null ? averageColor(texture) : new Color(blockstate.getMaterial().getMaterialMapColor().colorValue);
         cachedColors.put(blockId, color);
         return color;
     }
