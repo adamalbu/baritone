@@ -56,6 +56,8 @@ public class ToMapCommand extends Command {
 
     private static HashMap<String, Color> cachedColors;
     private static Color DEFAULT_BLOCK_COLOR = new Color(Color.TRANSLUCENT, true);
+    private static Pattern BLOCK_ID_PATTERN = Pattern.compile("minecraft:(.*?)(\\[.*\\])?$");
+    private static String TEXTURE_BASE_PATH = "/home/<user>/.minecraft/versions/1.12.2/1.12.2/assets/minecraft/textures/blocks/";
     private ExecutorService executor;
 
     public ToMapCommand(IBaritone baritone) {
@@ -123,43 +125,21 @@ public class ToMapCommand extends Command {
                     logDirect("Failed! No regionfile saved at this location.");
                 }
                 BufferedImage result = new BufferedImage(512, 512, BufferedImage.TYPE_INT_ARGB);
-                Pattern p = Pattern.compile("minecraft:(.*?)(\\[.*\\])?$");
                 logDirect("Getting top blocks for region " + rX + " " + rZ);
                 for (int x = 0; x < 512; x++) {
                     for (int z = 0; z < 512; z++) {
                         for (int y = 255; y >= 0; y--) {
                             IBlockState bs = cr.getBlock(x, y, z);
-//                                bs = ((CachedWorld) ctx.worldData().getCachedWorld()).getOrCreateRegion(rX,rZ).getBlock(x,y,z);
-                            if (bs != null) {
-                                if (bs.getBlock().equals(Blocks.AIR)) {
-                                    continue;
-                                } else {
-                                    try {
-                                        String id;
-                                        try {
-                                            Matcher m = p.matcher(bs.toString());
-                                            if (m.find())
-                                                id = m.group(1);
-                                            else {
-                                                System.out.println("Failed to find block id for " + bs.toString());
-                                                return;
-                                            }
-                                        } catch (Exception e) {
-                                            e.printStackTrace();
-                                            System.out.println("No match found for " + bs.toString());
-                                            logDirect("No match found for " + bs.toString());
-                                            return;
-                                        }
-                                        if (!(bs.getBlock() instanceof BlockAir)) { // we must show this block
-                                            result.setRGB(x, z, getColorForBlockId(id).getRGB());
-                                            break;
-                                        }
-                                    } catch (Exception e) {
-                                        e.printStackTrace();
-        //                            System.out.println("Couldn't get IBlockState for " + x + " " + y + " " + z);
-                                    }
-                                }
+                            if (bs == null || bs.getBlock().equals(Blocks.AIR)) {
+                                continue;
                             }
+                            try {
+                                result.setRGB(x, z, getColorForBlockId(guessBlockId(bs)).getRGB());
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                                result.setRGB(x, z, DEFAULT_BLOCK_COLOR.getRGB());
+                            }
+                            break;
                         }
                     }
                 }
@@ -198,11 +178,10 @@ public class ToMapCommand extends Command {
         if (blockId == null) {
             return DEFAULT_BLOCK_COLOR;
         }
-        String base = "/home/<user>/.minecraft/versions/1.12.2/1.12.2/assets/minecraft/textures/blocks/";
         System.out.println("Getting texture for " + blockId);
-        Path withTopPath = Paths.get(base + blockId + "_top.png");
-        Path withoutTopPath = Paths.get(base + blockId + ".png");
-        Path debug = Paths.get(base + "debug.png");
+        Path withTopPath = Paths.get(TEXTURE_BASE_PATH + blockId + "_top.png");
+        Path withoutTopPath = Paths.get(TEXTURE_BASE_PATH + blockId + ".png");
+        Path debug = Paths.get(TEXTURE_BASE_PATH + "debug.png");
         BufferedImage texture;
         if (Files.exists(withTopPath))
             texture = ImageIO.read(Files.newInputStream(withTopPath));
@@ -213,6 +192,19 @@ public class ToMapCommand extends Command {
         Color color = averageColor(texture);
         cachedColors.put(blockId, color);
         return color;
+    }
+
+    private String guessBlockId(IBlockState blockstate) {
+        String id;
+        try {
+            Matcher m = BLOCK_ID_PATTERN.matcher(blockstate.toString());
+            if (m.find())
+                return m.group(1);
+        } catch (Exception e) {
+            logDebug("Failed to find block id for " + blockstate.toString());
+            e.printStackTrace();
+        }
+        return null;
     }
 
     @Override
