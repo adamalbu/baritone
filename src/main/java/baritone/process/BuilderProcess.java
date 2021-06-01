@@ -222,7 +222,8 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                         continue; // irrelevant
                     }
                     IBlockState curr = bcc.bsi.get0(x, y, z);
-                    if (curr.getBlock() != Blocks.AIR && !(curr.getBlock() instanceof BlockLiquid) && !valid(curr, desired, false)) {
+                    if (curr.getBlock() != Blocks.AIR && !(curr.getBlock() instanceof BlockLiquid) && !valid(curr, desired, false)
+                            && !(baritone.settings().buildAvoidanceChecks.value && dontBreak(bcc, x, y, z, curr))) {
                         BetterBlockPos pos = new BetterBlockPos(x, y, z);
                         Optional<Rotation> rot = RotationUtils.reachable(ctx.player(), pos, ctx.playerController().getBlockReachDistance());
                         if (rot.isPresent()) {
@@ -563,7 +564,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                     if (desired != null) {
                         // we care about this position
                         BetterBlockPos pos = new BetterBlockPos(x, y, z);
-                        if (valid(bcc.bsi.get0(x, y, z), desired, false)) {
+                        if (valid(bcc.bsi.get0(x, y, z), desired, false) || (baritone.settings().buildAvoidedsAreValid.value && dontBreak(bcc,x,y,z))) {
                             incorrectPositions.remove(pos);
                             observedCompleted.add(BetterBlockPos.longHash(pos));
                         } else {
@@ -590,7 +591,8 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                     }
                     if (bcc.bsi.worldContainsLoadedChunk(blockX, blockZ)) { // check if its in render distance, not if its in cache
                         // we can directly observe this block, it is in render distance
-                        if (valid(bcc.bsi.get0(blockX, blockY, blockZ), schematic.desiredState(x, y, z, current, this.approxPlaceable), false)) {
+                        if (valid(bcc.bsi.get0(blockX, blockY, blockZ), schematic.desiredState(x, y, z, current, this.approxPlaceable), false)
+                                || (baritone.settings().buildAvoidedsAreValid.value && dontBreak(bcc, blockX, blockY, blockZ, current))) {
                             observedCompleted.add(BetterBlockPos.longHash(blockX, blockY, blockZ));
                         } else {
                             incorrectPositions.add(new BetterBlockPos(blockX, blockY, blockZ));
@@ -625,6 +627,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         List<BetterBlockPos> breakable = new ArrayList<>();
         List<BetterBlockPos> sourceLiquids = new ArrayList<>();
         List<BetterBlockPos> flowingLiquids = new ArrayList<>();
+        List<BetterBlockPos> avoided = new ArrayList<>();
         Map<IBlockState, Integer> missing = new HashMap<>();
         incorrectPositions.forEach(pos -> {
             IBlockState state = bcc.bsi.get0(pos);
@@ -646,7 +649,11 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                         flowingLiquids.add(pos);
                     }
                 } else {
-                    breakable.add(pos);
+                    if (!dontBreak(bcc, pos.x, pos.y, pos.z, state)) {
+                        breakable.add(pos);
+                    } else {
+                        avoided.add(pos);
+                    }
                 }
             }
         });
@@ -673,6 +680,12 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             if (logMissing && !flowingLiquids.isEmpty()) {
                 logDirect("Unreplaceable liquids at at least:");
                 logDirect(flowingLiquids.stream()
+                        .map(p -> String.format("%s %s %s", p.x, p.y, p.z))
+                        .collect(Collectors.joining("\n")));
+            }
+            if (logMissing && !avoided.isEmpty()) { // should never happen if buildAvoidedsAreValid is true
+                logDirect("Blocks we shouldn't break at at least:");
+                logDirect(avoided.stream()
                         .map(p -> String.format("%s %s %s", p.x, p.y, p.z))
                         .collect(Collectors.joining("\n")));
             }
@@ -855,6 +868,17 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             return true;
         }
         return current.equals(desired);
+    }
+
+    private boolean dontBreak(BuilderCalculationContext bcc, int x, int y, int z) {
+        return dontBreak(bcc, x, y, z, bcc.bsi.get0(x,y,z));
+    }
+
+    private boolean dontBreak(BuilderCalculationContext bcc, int x, int y, int z, IBlockState state) {
+        // MovementHelper::avoidBreaking doesn't actually check for falling block towers
+        // parts of the avoidance logic for pathing happen in MovementHelper::getMiningDurationTicks and we want to mimic pathing as closely as possible
+        // so we just use MovementHelper::getMiningDurationTicks instead
+        return baritone.settings().buildAvoidanceChecks.value && MovementHelper.getMiningDurationTicks(bcc, x, y, z, state, true) >= MovementHelper.COST_INF;
     }
 
     public class BuilderCalculationContext extends CalculationContext {

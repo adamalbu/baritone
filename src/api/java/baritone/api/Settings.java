@@ -247,6 +247,20 @@ public final class Settings {
     public final Setting<Boolean> buildIgnoreExisting = new Setting<>(false);
 
     /**
+     * If this setting is true, the builder will apply the same checks as pathing before breaking a block.
+     * <p>
+     * I.E. it will actually respect avoidUpdatingFallingBlocks and never break blocks or sand/gravel towers next to liquids
+     * <p>
+     * Note: even in creative mode pathing will never consider breaking unbreakable blocks and so does the builder if this is true
+     */
+    public final Setting<Boolean> buildAvoidanceChecks = new Setting<>(true);
+
+    /**
+     * If this setting is true, the builder will treat blocks avoided with buildAvoidanceChecks as correct.
+     */
+    public final Setting<Boolean> buildAvoidedsAreValid = new Setting<>(true);
+
+    /**
      * If this setting is true, Baritone will never break a block that is adjacent to an unsupported falling block.
      * <p>
      * I.E. it will never trigger cascading sand / gravel falls
