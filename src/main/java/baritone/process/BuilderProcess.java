@@ -875,6 +875,9 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
     }
 
     private boolean dontBreak(BuilderCalculationContext bcc, int x, int y, int z, IBlockState state) {
+        if (state.getBlock() instanceof BlockAir || state.getBlock() instanceof BlockLiquid) {
+            return false; // can't break, nothing to avoid
+        }
         // MovementHelper::avoidBreaking doesn't actually check for falling block towers
         // parts of the avoidance logic for pathing happen in MovementHelper::getMiningDurationTicks and we want to mimic pathing as closely as possible
         // so we just use MovementHelper::getMiningDurationTicks instead
