@@ -217,6 +217,9 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                     if (dy == -1 && x == pathStart.x && z == pathStart.z) {
                         continue; // dont mine what we're supported by, but not directly standing on
                     }
+                    if (otherPlayer(x, y, z)) {
+                        continue; // let's assume they'll fix it for us and we can move along
+                    }
                     IBlockState desired = bcc.getSchematic(x, y, z, bcc.bsi.get0(x, y, z));
                     if (desired == null) {
                         continue; // irrelevant
@@ -258,6 +261,9 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                     int x = center.x + dx;
                     int y = center.y + dy;
                     int z = center.z + dz;
+                    if (otherPlayer(x, y, z)) {
+                        continue; // let's assume they'll fix it for us and we can move along
+                    }
                     IBlockState desired = bcc.getSchematic(x, y, z, bcc.bsi.get0(x, y, z));
                     if (desired == null) {
                         continue; // irrelevant
@@ -559,6 +565,10 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                     int x = center.x + dx;
                     int y = center.y + dy;
                     int z = center.z + dz;
+                    if (otherPlayer(x, y, z)) {
+                        incorrectPositions.remove(new BetterBlockPos(x, y, z)); // we might have this marked as wrong, but since another player walked there we won't place it anymore
+                        continue; // let's assume they'll fix it for us and we can move along
+                    }
                     IBlockState desired = bcc.getSchematic(x, y, z, bcc.bsi.get0(x, y, z));
                     if (desired != null) {
                         // we care about this position
@@ -584,6 +594,9 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                     int blockX = x + origin.getX();
                     int blockY = y + origin.getY();
                     int blockZ = z + origin.getZ();
+                    if (otherPlayer(blockX, blockY, blockZ)) {
+                        continue; // let's assume they'll fix it for us and we can move along
+                    }
                     IBlockState current = bcc.bsi.get0(blockX, blockY, blockZ);
                     if (!schematic.inSchematic(x, y, z, current)) {
                         continue;
@@ -855,6 +868,17 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             return true;
         }
         return current.equals(desired);
+    }
+
+    // whether or not it is likely for another player to deal with this position
+    // currently assumes every player is cooperating with us and deals with anything within 5 blocks of them
+    private boolean otherPlayer(int x, int y, int z) {
+        int radiusSq = 25;
+        return ctx.world().playerEntities.stream()
+                    .filter(p -> p != ctx.player())
+                    .filter(p -> (p.posX-x)*(p.posX-x) + (p.posY-y)*(p.posY-y) + (p.posZ-z)*(p.posZ-z) < radiusSq)
+                    .findFirst()
+                    .isPresent();
     }
 
     public class BuilderCalculationContext extends CalculationContext {
