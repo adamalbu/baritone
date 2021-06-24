@@ -426,7 +426,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         if (!recalc(bcc)) {
             if (Baritone.settings().buildInLayers.value && layer < realSchematic.heightY()) {
                 logDirect("Starting layer " + layer);
-                layer++;
+                layer = Math.min(layer + Baritone.settings().layerHeight.value, realSchematic.heightY());
                 return onTick(calcFailed, isSafeToCancel, recursions + 1);
             }
             Vec3i repeat = Baritone.settings().buildRepeat.value;
@@ -516,7 +516,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             if (goal == null) {
                 if (Baritone.settings().skipFailedLayers.value && Baritone.settings().buildInLayers.value && layer < realSchematic.heightY()) {
                     logDirect("Skipping layer that I cannot construct! Layer #" + layer);
-                    layer++;
+                    layer = Math.min(layer + Baritone.settings().layerHeight.value, realSchematic.heightY());
                     return onTick(calcFailed, isSafeToCancel, recursions + 1);
                 }
                 logDirect("Unable to do it. Pausing. resume to resume, cancel to cancel");
