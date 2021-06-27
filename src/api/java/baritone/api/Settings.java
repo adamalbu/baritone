@@ -65,6 +65,13 @@ public final class Settings {
     public final Setting<Boolean> allowInventory = new Setting<>(false);
 
     /**
+     * Allow Baritone to move any item from the search tab to your hotbar when you are in creative mode
+     *
+     * This does NOT depend on allowInventory, because it does not affect the rest of your inventory
+     */
+    public final Setting<Boolean> allowInventoryCreative = new Setting<>(false);
+
+    /**
      * Disable baritone's auto-tool at runtime, but still assume that another mod will provide auto tool functionality
      * <p>
      * Specifically, path calculation will still assume that an auto tool will run at execution time, even though

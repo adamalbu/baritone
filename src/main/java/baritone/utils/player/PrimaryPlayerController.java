@@ -69,6 +69,11 @@ public enum PrimaryPlayerController implements IPlayerController, Helper {
     }
 
     @Override
+    public void sendSlotPacket(ItemStack item, int slot) {
+        mc.playerController.sendSlotPacket(item, slot);
+    }
+
+    @Override
     public GameType getGameType() {
         return mc.playerController.getCurrentGameType();
     }

@@ -24,11 +24,13 @@ import baritone.utils.ToolSet;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.init.Blocks;
 import net.minecraft.inventory.ClickType;
 import net.minecraft.item.*;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.NonNullList;
+import net.minecraft.world.GameType;
 
 import java.util.ArrayList;
 import java.util.OptionalInt;
@@ -153,10 +155,10 @@ public final class InventoryBehavior extends Behavior {
     }
 
     public boolean throwaway(boolean select, Predicate<? super ItemStack> desired) {
-        return throwaway(select, desired, Baritone.settings().allowInventory.value);
+        return throwaway(select, desired, Baritone.settings().allowInventory.value, Baritone.settings().allowInventoryCreative.value);
     }
 
-    public boolean throwaway(boolean select, Predicate<? super ItemStack> desired, boolean allowInventory) {
+    public boolean throwaway(boolean select, Predicate<? super ItemStack> desired, boolean allowInventory, boolean allowInventoryCreative) {
         EntityPlayerSP p = ctx.player();
         NonNullList<ItemStack> inv = p.inventory.mainInventory;
         for (int i = 0; i < 9; i++) {
@@ -195,6 +197,20 @@ public final class InventoryBehavior extends Behavior {
                 if (desired.test(inv.get(i))) {
                     swapWithHotBar(i, 7);
                     if (select) {
+                        p.inventory.currentItem = 7;
+                    }
+                    return true;
+                }
+            }
+        }
+
+        if (allowInventoryCreative && ctx.playerController().getGameType() == GameType.CREATIVE) {
+            NonNullList<ItemStack> items = NonNullList.create();
+            CreativeTabs.SEARCH.displayAllRelevantItems(items); // this is actually how vanilla does it
+            for (ItemStack item : items) {
+                if (desired.test(item)) {
+                    if (select) {
+                        ctx.playerController().sendSlotPacket(item, 36+7);
                         p.inventory.currentItem = 7;
                     }
                     return true;
