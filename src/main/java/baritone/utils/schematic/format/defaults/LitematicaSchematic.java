@@ -17,6 +17,7 @@
 
 package baritone.utils.schematic.format.defaults;
 
+import baritone.utils.accessor.INBTTagLongArray;
 import baritone.utils.schematic.StaticSchematic;
 import net.minecraft.block.*;
 import net.minecraft.block.properties.IProperty;
@@ -73,15 +74,7 @@ public final class LitematicaSchematic extends StaticSchematic {
         int paletteSize = (int) Math.floor(log2(paletteTag.tagCount()))+1;
         long litematicSize = (long) this.x*this.y*this.z;
 
-        // In 1.12, the long array isn't exposed by the libraries so parsing has to be done manually
-        String rawBlockString = (nbt.getCompoundTag("Regions").getCompoundTag(regionName)).getTag("BlockStates").toString();
-        rawBlockString = rawBlockString.substring(3,rawBlockString.length()-1);
-        String[] rawBlockArrayString = rawBlockString.split(",");
-        long[] rawBlockData = new long[rawBlockArrayString.length];
-        for (int i = 0; i < rawBlockArrayString.length; i++) {
-            rawBlockData[i] = Long.parseLong(rawBlockArrayString[i].substring(0,rawBlockArrayString[i].length()-1));
-        }
-
+        long[] rawBlockData = ((INBTTagLongArray) nbt.getCompoundTag("Regions").getCompoundTag(regionName).getTag("BlockStates")).getData();
 
         LitematicaBitArray bitArray = new LitematicaBitArray(paletteSize, litematicSize, rawBlockData);
         if (paletteSize > 32) {
