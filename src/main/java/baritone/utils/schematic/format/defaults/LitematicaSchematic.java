@@ -17,10 +17,13 @@
 
 package baritone.utils.schematic.format.defaults;
 
+import baritone.api.schematic.CompositeSchematic;
+import baritone.api.schematic.IStaticSchematic;
 import baritone.utils.accessor.INBTTagLongArray;
 import baritone.utils.schematic.StaticSchematic;
 import net.minecraft.block.*;
 import net.minecraft.block.properties.IProperty;
+import net.minecraft.init.Blocks;
 import net.minecraft.nbt.*;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.block.state.IBlockState;
@@ -33,18 +36,29 @@ import java.util.*;
  * @author Emerson
  * @since 12/27/2020
  */
-public final class LitematicaSchematic extends StaticSchematic {
+public final class LitematicaSchematic extends CompositeSchematic implements IStaticSchematic {
 
     public LitematicaSchematic(NBTTagCompound nbt) {
-        String regionName = (String) nbt.getCompoundTag("Regions").getKeySet().toArray()[0];
-        this.x = Math.abs(nbt.getCompoundTag("Regions").getCompoundTag(regionName).getCompoundTag("Size").getInteger("x"));
-        this.y = Math.abs(nbt.getCompoundTag("Regions").getCompoundTag(regionName).getCompoundTag("Size").getInteger("y"));
-        this.z = Math.abs(nbt.getCompoundTag("Regions").getCompoundTag(regionName).getCompoundTag("Size").getInteger("z"));
-        this.states = new IBlockState[this.x][this.z][this.y];
+        super(0,0,0);
+        NBTTagCompound regionsTag = nbt.getCompoundTag("Regions");
+        for (String regionName : regionsTag.getKeySet()) {
+            NBTTagCompound regionTag = regionsTag.getCompoundTag(regionName);
+            NBTTagCompound positionTag = regionTag.getCompoundTag("Position");
+            NBTTagCompound sizeTag = regionTag.getCompoundTag("Size");
+            int posX = normalizePosition(positionTag.getInteger("x"), sizeTag.getInteger("x"));
+            int posY = normalizePosition(positionTag.getInteger("y"), sizeTag.getInteger("y"));
+            int posZ = normalizePosition(positionTag.getInteger("z"), sizeTag.getInteger("z"));
+            put(readRegion(regionTag), posX, posY, posZ);
+        }
+    }
+
+    public static StaticSchematic readRegion(NBTTagCompound nbt) {
+        int sizeX = Math.abs(nbt.getCompoundTag("Size").getInteger("x"));
+        int sizeY = Math.abs(nbt.getCompoundTag("Size").getInteger("y"));
+        int sizeZ = Math.abs(nbt.getCompoundTag("Size").getInteger("z"));
 
 
-        NBTTagList paletteTag = nbt.getCompoundTag("Regions").getCompoundTag(regionName).getTagList("BlockStatePalette",10);
-        // ListNBT paletteTag = nbt.getCompound("Regions").getCompound(regionName).getList("BlockStatePalette",10);
+        NBTTagList paletteTag = nbt.getTagList("BlockStatePalette",10);
 
         // Create the block states array
         IBlockState[] paletteBlockStates = new IBlockState[paletteTag.tagCount()];
@@ -72,9 +86,8 @@ public final class LitematicaSchematic extends StaticSchematic {
 
         // BlockData is stored as an NBT long[]
         int paletteSize = (int) Math.floor(log2(paletteTag.tagCount()))+1;
-        long litematicSize = (long) this.x*this.y*this.z;
-
-        long[] rawBlockData = ((INBTTagLongArray) nbt.getCompoundTag("Regions").getCompoundTag(regionName).getTag("BlockStates")).getData();
+        long litematicSize = (long) sizeX*sizeY*sizeZ;
+        long[] rawBlockData = ((INBTTagLongArray) nbt.getTag("BlockStates")).getData();
 
         LitematicaBitArray bitArray = new LitematicaBitArray(paletteSize, litematicSize, rawBlockData);
         if (paletteSize > 32) {
@@ -86,17 +99,36 @@ public final class LitematicaSchematic extends StaticSchematic {
             serializedBlockStates[i] = bitArray.getAt(i);
         }
 
+        IBlockState[][][] states = new IBlockState[sizeX][sizeZ][sizeY];
         int counter = 0;
-        for (int y = 0; y < this.y; y++) {
-            for (int z = 0; z < this.z; z++) {
-                for (int x = 0; x < this.x; x++) {
+        for (int y = 0; y < sizeY; y++) {
+            for (int z = 0; z < sizeZ; z++) {
+                for (int x = 0; x < sizeX; x++) {
                     IBlockState state = paletteBlockStates[serializedBlockStates[counter]];
-                    this.states[x][z][y] = state;
+                    states[x][z][y] = state;
                     counter++;
                 }
             }
         }
+        return new StaticSchematic(states, sizeX, sizeY, sizeZ);
     }
+
+    public IBlockState getDirect(int x, int y, int z) {
+        if (inSchematic(x, y, z, null)) {
+            return desiredState(x, y, z, null, null);
+        }
+        return Blocks.AIR.getDefaultState(); // mapArtMode assumes nonnull
+    }
+
+    // in Litematica the size of a region is the signed distance from the first to the second corner and the position is that of the first corner
+    // in Baritone sizes are unsigned and the offsets in CompositeSchematics are to the min x, min y, min z corner
+    private static int normalizePosition(int pos, int size) {
+        if (size < 0) {
+            return pos + size + 1;
+        }
+        return pos;
+    }
+
     private static double log2(int N) {
         return (Math.log(N) / Math.log(2));
     }

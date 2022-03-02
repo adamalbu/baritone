@@ -33,6 +33,14 @@ public class StaticSchematic extends AbstractSchematic implements IStaticSchemat
 
     protected IBlockState[][][] states;
 
+    public StaticSchematic() {
+    }
+
+    public StaticSchematic(IBlockState[][][] states, int x, int y, int z) {
+        super(x, y, z);
+        this.states = states;
+    }
+
     @Override
     public IBlockState desiredState(int x, int y, int z, IBlockState current, List<IBlockState> approxPlaceable) {
         return this.states[x][z][y];
