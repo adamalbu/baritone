@@ -21,16 +21,12 @@ import baritone.api.schematic.CompositeSchematic;
 import baritone.api.schematic.IStaticSchematic;
 import baritone.utils.accessor.INBTTagLongArray;
 import baritone.utils.schematic.StaticSchematic;
-import net.minecraft.block.*;
-import net.minecraft.block.properties.IProperty;
 import net.minecraft.init.Blocks;
 import net.minecraft.nbt.*;
-import net.minecraft.util.ResourceLocation;
 import net.minecraft.block.state.IBlockState;
 
 import org.apache.commons.lang3.Validate;
 import javax.annotation.Nullable;
-import java.util.*;
 
 /**
  * @author Emerson
@@ -64,23 +60,7 @@ public final class LitematicaSchematic extends CompositeSchematic implements ISt
         IBlockState[] paletteBlockStates = new IBlockState[paletteTag.tagCount()];
         // For every part of the array
         for (int i = 0; i<paletteTag.tagCount(); i++) {
-            // Set the default state by getting block name
-            Block block = Block.REGISTRY.getObject(new ResourceLocation((((NBTTagCompound) paletteTag.get(i)).getString("Name"))));
-            IBlockState blockState = block.getDefaultState();
-            NBTTagCompound properties = ((NBTTagCompound) paletteTag.get(i)).getCompoundTag("Properties");
-            Object[] keys = properties.getKeySet().toArray();
-            Map<String, String> propertiesMap = new HashMap<>();
-            // Create a map for each state
-            for (int j = 0; j<keys.length; j++) {
-                propertiesMap.put((String) keys[j], (properties.getString((String) keys[j])));
-            }
-            for (int j = 0; j<keys.length; j++) {
-                IProperty<?> property = block.getBlockState().getProperty(keys[j].toString());
-                if (property != null) {
-                    blockState = setPropertyValue(blockState, property, propertiesMap.get(keys[j]));
-                }
-            }
-            paletteBlockStates[i] = blockState;
+            paletteBlockStates[i] = NBTUtil.readBlockState(paletteTag.getCompoundTagAt(i));
         }
 
 
@@ -94,19 +74,13 @@ public final class LitematicaSchematic extends CompositeSchematic implements ISt
             throw new IllegalStateException("Too many blocks in schematic to handle");
         }
 
-        int[] serializedBlockStates = new int[(int) litematicSize];
-        for (int i = 0; i<serializedBlockStates.length; i++) {
-            serializedBlockStates[i] = bitArray.getAt(i);
-        }
 
         IBlockState[][][] states = new IBlockState[sizeX][sizeZ][sizeY];
         int counter = 0;
         for (int y = 0; y < sizeY; y++) {
             for (int z = 0; z < sizeZ; z++) {
                 for (int x = 0; x < sizeX; x++) {
-                    IBlockState state = paletteBlockStates[serializedBlockStates[counter]];
-                    states[x][z][y] = state;
-                    counter++;
+                    states[x][z][y] = paletteBlockStates[bitArray.getAt(counter++)];
                 }
             }
         }
@@ -131,15 +105,6 @@ public final class LitematicaSchematic extends CompositeSchematic implements ISt
 
     private static double log2(int N) {
         return (Math.log(N) / Math.log(2));
-    }
-
-    private static <T extends Comparable<T>> IBlockState setPropertyValue(IBlockState state, IProperty<T> property, String value) {
-        Optional<T> parsed = property.parseValue(value).toJavaUtil();
-        if (parsed.isPresent()) {
-            return state.withProperty(property, parsed.get());
-        } else {
-            throw new IllegalArgumentException("Invalid value for property " + property);
-        }
     }
 
     /** LitematicaBitArray class from litematica */
