@@ -155,7 +155,7 @@ public class WaypointsCommand extends Command {
                 ForWaypoints.waypoints(this.baritone).removeWaypoint(waypoint);
             }
             deletedWaypoints.computeIfAbsent(baritone.getWorldProvider().getCurrentWorld(), k -> new ArrayList<>()).addAll(Arrays.<IWaypoint>asList(waypoints));
-            TextComponent textComponent = new TextComponent(String.format("Cleared %d waypoints, click to restore them", waypoints.length));
+            BaseComponent textComponent = new TextComponent(String.format("Cleared %d waypoints, click to restore them", waypoints.length));
             textComponent.getStyle().withClickEvent(new ClickEvent(
                     ClickEvent.Action.RUN_COMMAND,
                     String.format(
