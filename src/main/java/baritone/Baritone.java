@@ -29,6 +29,7 @@ import baritone.command.manager.CommandManager;
 import baritone.event.GameEventHandler;
 import baritone.process.*;
 import baritone.selection.SelectionManager;
+import baritone.utils.BaritoneAutoTest;
 import baritone.utils.BlockStateInterface;
 import baritone.utils.GuiClick;
 import baritone.utils.InputOverrideHandler;
@@ -120,6 +121,10 @@ public class Baritone implements IBaritone {
         this.worldProvider = new WorldProvider();
         this.selectionManager = new SelectionManager(this);
         this.commandManager = new CommandManager(this);
+
+        if (BaritoneAutoTest.ENABLE_AUTO_TEST) {
+            this.gameEventHandler.registerEventListener(BaritoneAutoTest.INSTANCE);
+        }
     }
 
     @Override

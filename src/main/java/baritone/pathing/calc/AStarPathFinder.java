@@ -25,6 +25,7 @@ import baritone.api.utils.BetterBlockPos;
 import baritone.pathing.calc.openset.BinaryHeapOpenSet;
 import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Moves;
+import baritone.utils.BaritoneAutoTest;
 import baritone.utils.pathing.BetterWorldBorder;
 import baritone.utils.pathing.Favoring;
 import baritone.utils.pathing.MutableMoveResult;
@@ -163,6 +164,10 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
         }
         if (cancelRequested) {
             return Optional.empty();
+        }
+        if (BaritoneAutoTest.ENABLE_AUTO_TEST) {
+            int nps = (int) (numNodes * 1.0 / ((System.currentTimeMillis() - startTime) / 1000F));
+            BaritoneAutoTest.INSTANCE.recordNodesPerSecond(nps);
         }
         System.out.println(numMovementsConsidered + " movements considered");
         System.out.println("Open set size: " + openSet.size());
