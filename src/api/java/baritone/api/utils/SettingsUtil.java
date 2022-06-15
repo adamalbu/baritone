@@ -20,7 +20,7 @@ package baritone.api.utils;
 import baritone.api.BaritoneAPI;
 import baritone.api.Settings;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import net.minecraft.block.Block;
 import net.minecraft.item.Item;
 import net.minecraft.util.EnumFacing;
@@ -265,9 +265,8 @@ public class SettingsUtil {
                         .map(s -> parser.parse(context, s))
                         .collect(Collectors.collectingAndThen(
                             Collectors.toList(),
-                            ImmutableSet::copyOf // fine because ImmutableSet preserves order and no setting needs duplicate entries
-                        ))
-                        .asList();
+                            ImmutableList::copyOf
+                        ));
             }
 
             @Override

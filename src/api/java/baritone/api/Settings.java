@@ -22,7 +22,7 @@ import baritone.api.utils.SettingsUtil;
 import baritone.api.utils.TypeUtils;
 import baritone.api.utils.gui.BaritoneToast;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.init.Blocks;
@@ -54,7 +54,7 @@ public final class Settings {
     /**
      * Blocks that baritone will be allowed to break even with allowBreak set to false
      */
-    public final Setting<List<Block>> allowBreakAnyway = new Setting<>(ImmutableSet.<Block>of().asList());
+    public final Setting<List<Block>> allowBreakAnyway = new Setting<>(ImmutableList.of());
 
     /**
      * Allow Baritone to sprint
@@ -180,31 +180,31 @@ public final class Settings {
     /**
      * Blocks that Baritone is allowed to place (as throwaway, for sneak bridging, pillaring, etc.)
      */
-    public final Setting<List<Item>> acceptableThrowawayItems = new Setting<>(ImmutableSet.of(
+    public final Setting<List<Item>> acceptableThrowawayItems = new Setting<>(ImmutableList.of(
             Item.getItemFromBlock(Blocks.DIRT),
             Item.getItemFromBlock(Blocks.COBBLESTONE),
             Item.getItemFromBlock(Blocks.NETHERRACK),
             Item.getItemFromBlock(Blocks.STONE)
-    ).asList());
+    ));
 
     /**
      * Blocks that Baritone will attempt to avoid (Used in avoidance)
      */
-    public final Setting<List<Block>> blocksToAvoid = new Setting<>(ImmutableSet.<Block>of(
+    public final Setting<List<Block>> blocksToAvoid = new Setting<>(ImmutableList.of(
             // Leave Empty by Default
-    ).asList());
+    ));
 
     /**
      * Blocks that Baritone is not allowed to break
      */
-    public final Setting<List<Block>> blocksToDisallowBreaking = new Setting<>(ImmutableSet.<Block>of(
+    public final Setting<List<Block>> blocksToDisallowBreaking = new Setting<>(ImmutableList.of(
         // Leave Empty by Default
-    ).asList());
+    ));
 
     /**
      * blocks that baritone shouldn't break, but can if it needs to.
      */
-    public final Setting<List<Block>> blocksToAvoidBreaking = new Setting<>(ImmutableSet.of(
+    public final Setting<List<Block>> blocksToAvoidBreaking = new Setting<>(ImmutableList.of(
             Blocks.CRAFTING_TABLE,
             Blocks.FURNACE,
             Blocks.LIT_FURNACE,
@@ -212,7 +212,7 @@ public final class Settings {
             Blocks.TRAPPED_CHEST,
             Blocks.STANDING_SIGN,
             Blocks.WALL_SIGN
-    ).asList());
+    ));
 
     /**
      * this multiplies the break speed, if set above 1 it's "encourage breaking" instead
@@ -224,18 +224,18 @@ public final class Settings {
      * <p>
      * If a schematic asks for air at a certain position, and that position currently contains a block on this list, it will be treated as correct.
      */
-    public final Setting<List<Block>> buildIgnoreBlocks = new Setting<>(ImmutableSet.<Block>of(
+    public final Setting<List<Block>> buildIgnoreBlocks = new Setting<>(ImmutableList.of(
 
-    ).asList());
+    ));
 
     /**
      * A list of blocks to be treated as correct.
      * <p>
      * If a schematic asks for any block on this list at a certain position, it will be treated as correct, regardless of what it currently is.
      */
-    public final Setting<List<Block>> buildSkipBlocks = new Setting<>(ImmutableSet.<Block>of(
+    public final Setting<List<Block>> buildSkipBlocks = new Setting<>(ImmutableList.of(
 
-    ).asList());
+    ));
 
     /**
      * A mapping of blocks to blocks treated as correct in their position
@@ -267,9 +267,9 @@ public final class Settings {
      * <p>
      * If a schematic asks for a block on this list, only air will be accepted at that location (and nothing on buildIgnoreBlocks)
      */
-    public final Setting<List<Block>> okIfAir = new Setting<>(ImmutableSet.<Block>of(
+    public final Setting<List<Block>> okIfAir = new Setting<>(ImmutableList.of(
 
-    ).asList());
+    ));
 
     /**
      * If this is true, the builder will treat all non-air blocks as correct. It will only place new blocks.
