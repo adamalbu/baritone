@@ -100,6 +100,7 @@ public class MovementFall extends Movement {
 
             if (ctx.player().posY - dest.getY() < ctx.playerController().getBlockReachDistance() && !ctx.player().onGround) {
                 ctx.player().inventory.currentItem = ctx.player().inventory.getSlotFor(STACK_BUCKET_WATER);
+                state.setInput(Input.SNEAK, true);
 
                 targetRotation = new Rotation(toDest.getYaw(), 90.0F);
 
@@ -118,6 +119,7 @@ public class MovementFall extends Movement {
                 if (InventoryPlayer.isHotbar(ctx.player().inventory.getSlotFor(STACK_BUCKET_EMPTY))) {
                     ctx.player().inventory.currentItem = ctx.player().inventory.getSlotFor(STACK_BUCKET_EMPTY);
                     if (ctx.player().motionY >= 0) {
+                        state.setInput(Input.SNEAK, true);
                         return state.setInput(Input.CLICK_RIGHT, true);
                     } else {
                         return state;
