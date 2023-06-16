@@ -18,6 +18,7 @@
 package baritone.process;
 
 import baritone.Baritone;
+import baritone.api.BaritoneAPI;
 import baritone.api.pathing.goals.*;
 import baritone.api.process.IMineProcess;
 import baritone.api.process.PathingCommand;
@@ -318,6 +319,21 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             int zDiff = z - this.z;
             return GoalBlock.calculate(xDiff, yDiff < -1 ? yDiff + 2 : yDiff == -1 ? 0 : yDiff, zDiff);
         }
+
+        @Override
+        public boolean equals(Object o) {
+            return super.equals(o);
+        }
+
+        @Override
+        public String toString() {
+            return String.format(
+                    "GoalThreeBlocks{x=%s,y=%s,z=%s}",
+                    SettingsUtil.maybeCensor(x),
+                    SettingsUtil.maybeCensor(y),
+                    SettingsUtil.maybeCensor(z)
+            );
+        }
     }
 
     public List<BlockPos> droppedItemsScan() {
@@ -361,7 +377,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         locs = prune(ctx, locs, filter, max, blacklist, dropped);
 
         if (!untracked.isEmpty() || (Baritone.settings().extendCacheOnThreshold.value && locs.size() < max)) {
-            locs.addAll(WorldScanner.INSTANCE.scanChunkRadius(
+            locs.addAll(BaritoneAPI.getProvider().getWorldScanner().scanChunkRadius(
                     ctx.getBaritone().getPlayerContext(),
                     filter,
                     max,
@@ -396,7 +412,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
                     // is an x-ray and it'll get caught
                     if (filter.has(bsi.get0(x, y, z))) {
                         BlockPos pos = new BlockPos(x, y, z);
-                        if ((Baritone.settings().legitMineIncludeDiagonals.value && knownOreLocations.stream().anyMatch(ore -> ore.distanceSq(pos) <= 2 /* sq means this is pytha dist <= sqrt(2) */)) || RotationUtils.reachable(ctx.player(), pos, fakedBlockReachDistance).isPresent()) {
+                        if ((Baritone.settings().legitMineIncludeDiagonals.value && knownOreLocations.stream().anyMatch(ore -> ore.distanceSq(pos) <= 2 /* sq means this is pytha dist <= sqrt(2) */)) || RotationUtils.reachable(ctx, pos, fakedBlockReachDistance).isPresent()) {
                             knownOreLocations.add(pos);
                         }
                     }
@@ -435,6 +451,8 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
                 })
 
                 .filter(pos -> pos.getY() >= Baritone.settings().minYLevelWhileMining.value)
+
+                .filter(pos -> pos.getY() <= Baritone.settings().maxYLevelWhileMining.value)
 
                 .filter(pos -> !blacklist.contains(pos))
 

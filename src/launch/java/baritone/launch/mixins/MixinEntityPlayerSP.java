@@ -61,9 +61,8 @@ public class MixinEntityPlayerSP {
             method = "tick",
             at = @At(
                     value = "INVOKE",
-                    target = "net/minecraft/client/entity/EntityPlayerSP.isPassenger()Z",
-                    shift = At.Shift.BY,
-                    by = -3
+                    target = "net/minecraft/client/entity/AbstractClientPlayer.tick()V",
+                    shift = At.Shift.AFTER
             )
     )
     private void onPreUpdate(CallbackInfo ci) {
