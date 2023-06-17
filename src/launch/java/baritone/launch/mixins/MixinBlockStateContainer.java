@@ -36,6 +36,16 @@ public abstract class MixinBlockStateContainer implements IBlockStateContainer {
     protected IBlockStatePalette<BlockState> palette;
 
     @Override
+    public IBlockStatePalette getPalette() {
+        return palette;
+    }
+
+    @Override
+    public BitArray getStorage() {
+        return storage;
+    }
+
+    @Override
     public BlockState getAtPalette(int index) {
         return palette.get(index);
     }
