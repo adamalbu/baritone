@@ -36,6 +36,16 @@ public abstract class MixinPalettedContainer implements IPalettedContainer {
     protected IPalette<BlockState> palette;
 
     @Override
+    public IPalette<BlockState> getPalette() {
+        return palette;
+    }
+
+    @Override
+    public BitArray getStorage() {
+        return storage;
+    }
+
+    @Override
     public BlockState getAtPalette(int index) {
         return palette.get(index);
     }
