@@ -30,10 +30,7 @@ import baritone.api.schematic.ISchematic;
 import baritone.api.schematic.IStaticSchematic;
 import baritone.api.schematic.SubstituteSchematic;
 import baritone.api.schematic.format.ISchematicFormat;
-import baritone.api.utils.BetterBlockPos;
-import baritone.api.utils.RayTraceUtils;
-import baritone.api.utils.Rotation;
-import baritone.api.utils.RotationUtils;
+import baritone.api.utils.*;
 import baritone.api.utils.input.Input;
 import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
@@ -163,7 +160,6 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         if (!format.isPresent()) {
             return false;
         }
-
         ISchematic parsed;
         try {
             parsed = format.get().parse(new FileInputStream(schematic));
@@ -171,18 +167,20 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             e.printStackTrace();
             return false;
         }
-
-        if (Baritone.settings().mapArtMode.value) {
-            parsed = new MapArtSchematic((IStaticSchematic) parsed);
-        }
-
-        if (Baritone.settings().buildOnlySelection.value) {
-            parsed = new SelectionSchematic(parsed, origin, baritone.getSelectionManager().getSelections());
-        }
-
-
+        parsed = applyMapArtAndSelection(origin, (IStaticSchematic) parsed);
         build(name, parsed, origin);
         return true;
+    }
+
+    private ISchematic applyMapArtAndSelection(Vector3i origin, IStaticSchematic parsed) {
+        ISchematic schematic = parsed;
+        if (Baritone.settings().mapArtMode.value) {
+            schematic = new MapArtSchematic(parsed);
+        }
+        if (Baritone.settings().buildOnlySelection.value) {
+            schematic = new SelectionSchematic(schematic, origin, baritone.getSelectionManager().getSelections());
+        }
+        return schematic;
     }
 
     @Override
@@ -218,7 +216,8 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                 try {
                     LitematicaSchematic schematic1 = new LitematicaSchematic(CompressedStreamTools.readCompressed(Files.newInputStream(LitematicaHelper.getSchematicFile(i).toPath())), false);
                     Vector3i correctedOrigin = LitematicaHelper.getCorrectedOrigin(schematic1, i);
-                    LitematicaSchematic schematic2 = LitematicaHelper.blackMagicFuckery(schematic1, i);
+                    ISchematic schematic2 = LitematicaHelper.blackMagicFuckery(schematic1, i);
+                    schematic2 = applyMapArtAndSelection(origin, (IStaticSchematic) schematic2);
                     build(name, schematic2, correctedOrigin);
                 } catch (Exception e) {
                     logDirect("Schematic File could not be loaded.");
@@ -282,7 +281,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                     BlockState curr = bcc.bsi.get0(x, y, z);
                     if (!(curr.getBlock() instanceof AirBlock) && !(curr.getBlock() == Blocks.WATER || curr.getBlock() == Blocks.LAVA) && !valid(curr, desired, false)) {
                         BetterBlockPos pos = new BetterBlockPos(x, y, z);
-                        Optional<Rotation> rot = RotationUtils.reachable(ctx.player(), pos, ctx.playerController().getBlockReachDistance());
+                        Optional<Rotation> rot = RotationUtils.reachable(ctx, pos, ctx.playerController().getBlockReachDistance());
                         if (rot.isPresent()) {
                             return Optional.of(new Tuple<>(pos, rot.get()));
                         }
@@ -573,7 +572,10 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             for (int i = 9; i < 36; i++) {
                 for (BlockState desired : noValidHotbarOption) {
                     if (valid(approxPlaceable.get(i), desired, true)) {
-                        baritone.getInventoryBehavior().attemptToPutOnHotbar(i, usefulSlots::contains);
+                        if (!baritone.getInventoryBehavior().attemptToPutOnHotbar(i, usefulSlots::contains)) {
+                            // awaiting inventory move, so pause
+                            return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+                        }
                         break outer;
                     }
                 }
@@ -773,6 +775,20 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         }
 
         @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            JankyGoalComposite goal = (JankyGoalComposite) o;
+            return Objects.equals(primary, goal.primary)
+                    && Objects.equals(fallback, goal.fallback);
+        }
+
+        @Override
         public String toString() {
             return "JankyComposite Primary: " + primary + " Fallback: " + fallback;
         }
@@ -792,6 +808,16 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             }
             // but any other adjacent works for breaking, including inside or below
             return super.isInGoal(x, y, z);
+        }
+
+        @Override
+        public String toString() {
+            return String.format(
+                    "GoalBreak{x=%s,y=%s,z=%s}",
+                    SettingsUtil.maybeCensor(x),
+                    SettingsUtil.maybeCensor(y),
+                    SettingsUtil.maybeCensor(z)
+            );
         }
     }
 
@@ -836,6 +862,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             this.allowSameLevel = allowSameLevel;
         }
 
+        @Override
         public boolean isInGoal(int x, int y, int z) {
             if (x == this.x && y == this.y && z == this.z) {
                 return false;
@@ -852,9 +879,31 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             return super.isInGoal(x, y, z);
         }
 
+        @Override
         public double heuristic(int x, int y, int z) {
             // prioritize lower y coordinates
             return this.y * 100 + super.heuristic(x, y, z);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!super.equals(o)) {
+                return false;
+            }
+
+            GoalAdjacent goal = (GoalAdjacent) o;
+            return allowSameLevel == goal.allowSameLevel
+                    && Objects.equals(no, goal.no);
+        }
+
+        @Override
+        public String toString() {
+            return String.format(
+                    "GoalAdjacent{x=%s,y=%s,z=%s}",
+                    SettingsUtil.maybeCensor(x),
+                    SettingsUtil.maybeCensor(y),
+                    SettingsUtil.maybeCensor(z)
+            );
         }
     }
 
@@ -864,9 +913,20 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             super(placeAt.up());
         }
 
+        @Override
         public double heuristic(int x, int y, int z) {
             // prioritize lower y coordinates
             return this.y * 100 + super.heuristic(x, y, z);
+        }
+
+        @Override
+        public String toString() {
+            return String.format(
+                    "GoalPlace{x=%s,y=%s,z=%s}",
+                    SettingsUtil.maybeCensor(x),
+                    SettingsUtil.maybeCensor(y),
+                    SettingsUtil.maybeCensor(z)
+            );
         }
     }
 
