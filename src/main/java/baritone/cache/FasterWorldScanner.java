@@ -181,21 +181,21 @@ public enum FasterWorldScanner implements IWorldScanner {
             return;
         }
 
-        BlockStateContainer sectionContainer = section.getData();
+        BlockStateContainer<IBlockState> sectionContainer = section.getData();
         //this won't work if the PaletteStorage is of the type EmptyPaletteStorage
-        if (((IBlockStateContainer) sectionContainer).getStorage() == null) {
+        if (((IBlockStateContainer<IBlockState>) sectionContainer).getStorage() == null) {
             return;
         }
 
-        boolean[] isInFilter = getIncludedFilterIndices(lookup, ((IBlockStateContainer) sectionContainer).getPalette());
+        boolean[] isInFilter = getIncludedFilterIndices(lookup, ((IBlockStateContainer<IBlockState>) sectionContainer).getPalette());
         if (isInFilter.length == 0) {
             return;
         }
 
-        BitArray array = ((IBlockStateContainer) section.getData()).getStorage();
+        BitArray array = ((IBlockStateContainer<IBlockState>) section.getData()).getStorage();
         long[] longArray = array.getBackingLongArray();
         int arraySize = array.size();
-        int bitsPerEntry = ((IBitArray) array).getBitsPerEntry();
+        int bitsPerEntry = array.bitsPerEntry();
         long maxEntryValue = ((IBitArray) array).getMaxEntryValue();
 
 
@@ -230,7 +230,7 @@ public enum FasterWorldScanner implements IWorldScanner {
         }
     }
 
-    private boolean[] getIncludedFilterIndices(BlockOptionalMetaLookup lookup, IBlockStatePalette palette) {
+    private boolean[] getIncludedFilterIndices(BlockOptionalMetaLookup lookup, IBlockStatePalette<IBlockState> palette) {
         boolean commonBlockFound = false;
         ObjectIntIdentityMap<IBlockState> paletteMap = getPalette(palette);
         int size = paletteMap.size();
@@ -256,7 +256,7 @@ public enum FasterWorldScanner implements IWorldScanner {
     /**
      * cheats to get the actual map of id -> blockstate from the various palette implementations
      */
-    private static ObjectIntIdentityMap<IBlockState> getPalette(IBlockStatePalette palette) {
+    private static ObjectIntIdentityMap<IBlockState> getPalette(IBlockStatePalette<IBlockState> palette) {
         if (palette instanceof BlockStatePaletteRegistry) {
             return Block.BLOCK_STATE_IDS;
         } else {

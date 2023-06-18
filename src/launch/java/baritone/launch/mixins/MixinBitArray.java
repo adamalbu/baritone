@@ -69,9 +69,4 @@ public abstract class MixinBitArray implements IBitArray {
     public long getMaxEntryValue() {
         return maxEntryValue;
     }
-
-    @Override
-    public int getBitsPerEntry() {
-        return bitsPerEntry;
-    }
 }
