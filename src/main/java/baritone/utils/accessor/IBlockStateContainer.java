@@ -21,13 +21,13 @@ import net.minecraft.block.BlockState;
 import net.minecraft.util.BitArray;
 import net.minecraft.world.chunk.IBlockStatePalette;
 
-public interface IBlockStateContainer {
+public interface IBlockStateContainer<T> {
 
-    IBlockStatePalette getPalette();
+    IBlockStatePalette<T> getPalette();
 
     BitArray getStorage();
 
-    BlockState getAtPalette(int index);
+    T getAtPalette(int index);
 
     int[] storageArray();
 }

@@ -27,16 +27,16 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 
 @Mixin(BlockStateContainer.class)
-public abstract class MixinBlockStateContainer implements IBlockStateContainer {
+public abstract class MixinBlockStateContainer<T> implements IBlockStateContainer<T> {
 
     @Shadow
     protected BitArray storage;
 
     @Shadow
-    protected IBlockStatePalette<BlockState> palette;
+    protected IBlockStatePalette<T> palette;
 
     @Override
-    public IBlockStatePalette getPalette() {
+    public IBlockStatePalette<T> getPalette() {
         return palette;
     }
 
@@ -46,7 +46,7 @@ public abstract class MixinBlockStateContainer implements IBlockStateContainer {
     }
 
     @Override
-    public BlockState getAtPalette(int index) {
+    public T getAtPalette(int index) {
         return palette.get(index);
     }
 
