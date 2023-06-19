@@ -184,21 +184,21 @@ public enum FasterWorldScanner implements IWorldScanner {
             return;
         }
 
-        PalettedContainer sectionContainer = section.getData();
+        PalettedContainer<BlockState> sectionContainer = section.getData();
         //this won't work if the PaletteStorage is of the type EmptyPaletteStorage
-        if (((IPalettedContainer) sectionContainer).getStorage() == null) {
+        if (((IPalettedContainer<BlockState>) sectionContainer).getStorage() == null) {
             return;
         }
 
-        boolean[] isInFilter = getIncludedFilterIndices(lookup, ((IPalettedContainer) sectionContainer).getPalette());
+        boolean[] isInFilter = getIncludedFilterIndices(lookup, ((IPalettedContainer<BlockState>) sectionContainer).getPalette());
         if (isInFilter.length == 0) {
             return;
         }
 
-        BitArray array = ((IPalettedContainer) section.getData()).getStorage();
+        BitArray array = ((IPalettedContainer<BlockState>) section.getData()).getStorage();
         long[] longArray = array.getBackingLongArray();
         int arraySize = array.size();
-        int bitsPerEntry = ((IBitArray) array).getBitsPerEntry();
+        int bitsPerEntry = array.bitsPerEntry();
         long maxEntryValue = ((IBitArray) array).getMaxEntryValue();
 
 

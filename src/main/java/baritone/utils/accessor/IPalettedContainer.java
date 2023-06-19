@@ -21,13 +21,13 @@ import net.minecraft.block.BlockState;
 import net.minecraft.util.BitArray;
 import net.minecraft.util.palette.IPalette;
 
-public interface IPalettedContainer {
+public interface IPalettedContainer<T> {
 
-    IPalette<BlockState> getPalette();
+    IPalette<T> getPalette();
 
     BitArray getStorage();
 
-    BlockState getAtPalette(int index);
+    T getAtPalette(int index);
 
     int[] storageArray();
 }

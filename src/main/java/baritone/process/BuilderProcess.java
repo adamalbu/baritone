@@ -702,7 +702,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         incorrectPositions.forEach(pos -> {
             BlockState state = bcc.bsi.get0(pos);
             if (state.getBlock() instanceof AirBlock) {
-                if (approxPlaceable.contains(bcc.getSchematic(pos.x, pos.y, pos.z, state))) {
+                if (containsBlockState(approxPlaceable, bcc.getSchematic(pos.x, pos.y, pos.z, state))) {
                     placeable.add(pos);
                 } else {
                     BlockState desired = bcc.getSchematic(pos.x, pos.y, pos.z, state);
@@ -989,6 +989,15 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             }
         }
         return true;
+    }
+
+    private boolean containsBlockState(Collection<BlockState> states, BlockState state) {
+        for (BlockState testee : states) {
+            if (sameBlockstate(testee, state)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean valid(BlockState current, BlockState desired, boolean itemVerify) {

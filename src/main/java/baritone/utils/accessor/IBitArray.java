@@ -5,6 +5,4 @@ public interface IBitArray {
     int[] toArray();
 
     long getMaxEntryValue();
-
-    int getBitsPerEntry();
 }
