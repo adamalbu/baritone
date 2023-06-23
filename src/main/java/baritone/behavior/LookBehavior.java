@@ -20,13 +20,12 @@ package baritone.behavior;
 import baritone.Baritone;
 import baritone.api.Settings;
 import baritone.api.behavior.ILookBehavior;
-import baritone.api.event.events.PacketEvent;
-import baritone.api.event.events.PlayerUpdateEvent;
-import baritone.api.event.events.RotationMoveEvent;
-import baritone.api.event.events.WorldEvent;
-import baritone.api.utils.Helper;
+import baritone.api.behavior.look.IAimProcessor;
+import baritone.api.behavior.look.ITickableAimProcessor;
+import baritone.api.event.events.*;
 import baritone.api.utils.IPlayerContext;
 import baritone.api.utils.Rotation;
+import baritone.behavior.look.ForkableRandom;
 import net.minecraft.network.play.client.CPacketPlayer;
 
 import java.util.Optional;
@@ -44,14 +43,17 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
     private Rotation serverRotation;
 
     /**
-     * The last player rotation. Used when free looking
+     * The last player rotation. Used to restore the player's angle when using free look.
      *
      * @see Settings#freeLook
      */
     private Rotation prevRotation;
 
+    private final AimProcessor processor;
+
     public LookBehavior(Baritone baritone) {
         super(baritone);
+        this.processor = new AimProcessor(baritone.getPlayerContext());
     }
 
     @Override
@@ -67,6 +69,18 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
     }
 
     @Override
+    public IAimProcessor getAimProcessor() {
+        return this.processor;
+    }
+
+    @Override
+    public void onTick(TickEvent event) {
+        if (event.getType() == TickEvent.Type.IN) {
+            this.processor.tick();
+        }
+    }
+
+    @Override
     public void onPlayerUpdate(PlayerUpdateEvent event) {
         if (this.target == null) {
             return;
@@ -74,34 +88,16 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
         switch (event.getState()) {
             case PRE: {
                 if (this.target.mode == Target.Mode.NONE) {
+                    // Just return for PRE, we still want to set target to null on POST
                     return;
                 }
                 if (this.target.mode == Target.Mode.SERVER) {
                     this.prevRotation = new Rotation(ctx.player().rotationYaw, ctx.player().rotationPitch);
                 }
 
-                final float oldYaw = ctx.playerRotations().getYaw();
-                final float oldPitch = ctx.playerRotations().getPitch();
-
-                float desiredYaw = this.target.rotation.getYaw();
-                float desiredPitch = this.target.rotation.getPitch();
-
-                // In other words, the target doesn't care about the pitch, so it used playerRotations().getPitch()
-                // and it's safe to adjust it to a normal level
-                if (desiredPitch == oldPitch) {
-                    desiredPitch = nudgeToLevel(desiredPitch);
-                }
-
-                desiredYaw += (Math.random() - 0.5) * Baritone.settings().randomLooking.value;
-                desiredPitch += (Math.random() - 0.5) * Baritone.settings().randomLooking.value;
-
-                ctx.player().rotationYaw = calculateMouseMove(oldYaw, desiredYaw);
-                ctx.player().rotationPitch = calculateMouseMove(oldPitch, desiredPitch);
-
-                if (this.target.mode == Target.Mode.CLIENT) {
-                    // The target can be invalidated now since it won't be needed for RotationMoveEvent
-                    this.target = null;
-                }
+                final Rotation actual = this.processor.peekRotation(this.target.rotation);
+                ctx.player().rotationYaw = actual.getYaw();
+                ctx.player().rotationPitch = actual.getPitch();
                 break;
             }
             case POST: {
@@ -140,7 +136,8 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
     public void pig() {
         if (this.target != null) {
-            ctx.player().rotationYaw = this.target.rotation.getYaw();
+            final Rotation actual = this.processor.peekRotation(this.target.rotation);
+            ctx.player().rotationYaw = actual.getYaw();
         }
     }
 
@@ -155,38 +152,135 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
     @Override
     public void onPlayerRotationMove(RotationMoveEvent event) {
         if (this.target != null) {
-            event.setYaw(this.target.rotation.getYaw());
+            final Rotation actual = this.processor.peekRotation(this.target.rotation);
+            event.setYaw(actual.getYaw());
+            event.setPitch(actual.getPitch());
         }
     }
 
-    /**
-     * Nudges the player's pitch to a regular level. (Between {@code -20} and {@code 10}, increments are by {@code 1})
-     */
-    private static float nudgeToLevel(float pitch) {
-        if (pitch < -20) {
-            return pitch + 1;
-        } else if (pitch > 10) {
-            return pitch - 1;
+    private static final class AimProcessor extends AbstractAimProcessor {
+
+        public AimProcessor(final IPlayerContext ctx) {
+            super(ctx);
         }
-        return pitch;
+
+        @Override
+        protected Rotation getPrevRotation() {
+            // Implementation will use LookBehavior.serverRotation
+            return ctx.playerRotations();
+        }
     }
 
-    // The game uses rotation = (float) ((double) rotation + delta) so we'll do that as well
-    private float calculateMouseMove(float current, float target) {
-        final double delta = target - current;
-        final double deltaPx = angleToMouse(delta); // yes, even the mouse movements use double
-        return (float) ((double) current + mouseToAngle(deltaPx));
-    }
+    private static abstract class AbstractAimProcessor implements ITickableAimProcessor {
 
-    private double angleToMouse(double angleDelta) {
-        final double minAngleChange = mouseToAngle(1);
-        return Math.round(angleDelta / minAngleChange);
-    }
+        protected final IPlayerContext ctx;
+        private final ForkableRandom rand;
+        private double randomYawOffset;
+        private double randomPitchOffset;
 
-    private double mouseToAngle(double mouseDelta) {
-        // casting float literals to double gets us the precise values used by mc
-        final double f = ctx.minecraft().gameSettings.mouseSensitivity * (double) 0.6f + (double) 0.2f;
-        return mouseDelta * f * f * f * 8.0d * 0.15d;
+        public AbstractAimProcessor(IPlayerContext ctx) {
+            this.ctx = ctx;
+            this.rand = new ForkableRandom();
+        }
+
+        private AbstractAimProcessor(final AbstractAimProcessor source) {
+            this.ctx = source.ctx;
+            this.rand = source.rand.fork();
+            this.randomYawOffset = source.randomYawOffset;
+            this.randomPitchOffset = source.randomPitchOffset;
+        }
+
+        @Override
+        public final Rotation peekRotation(final Rotation rotation) {
+            final Rotation prev = this.getPrevRotation();
+
+            float desiredYaw = rotation.getYaw();
+            float desiredPitch = rotation.getPitch();
+
+            // In other words, the target doesn't care about the pitch, so it used playerRotations().getPitch()
+            // and it's safe to adjust it to a normal level
+            if (desiredPitch == prev.getPitch()) {
+                desiredPitch = nudgeToLevel(desiredPitch);
+            }
+
+            desiredYaw += this.randomYawOffset;
+            desiredPitch += this.randomPitchOffset;
+
+            return new Rotation(
+                    this.calculateMouseMove(prev.getYaw(), desiredYaw),
+                    this.calculateMouseMove(prev.getPitch(), desiredPitch)
+            );
+        }
+
+        @Override
+        public final void tick() {
+            this.randomYawOffset = (this.rand.nextDouble() - 0.5) * Baritone.settings().randomLooking.value;
+            this.randomPitchOffset = (this.rand.nextDouble() - 0.5) * Baritone.settings().randomLooking.value;
+        }
+
+        @Override
+        public final void advance(int ticks) {
+            for (int i = 0; i < ticks; i++) {
+                this.tick();
+            }
+        }
+
+        @Override
+        public Rotation nextRotation(final Rotation rotation) {
+            final Rotation actual = this.peekRotation(rotation);
+            this.tick();
+            return actual;
+        }
+
+        @Override
+        public final ITickableAimProcessor fork() {
+            return new AbstractAimProcessor(this) {
+
+                private Rotation prev = AbstractAimProcessor.this.getPrevRotation();
+
+                @Override
+                public Rotation nextRotation(final Rotation rotation) {
+                    return (this.prev = super.nextRotation(rotation));
+                }
+
+                @Override
+                protected Rotation getPrevRotation() {
+                    return this.prev;
+                }
+            };
+        }
+
+        protected abstract Rotation getPrevRotation();
+
+        /**
+         * Nudges the player's pitch to a regular level. (Between {@code -20} and {@code 10}, increments are by {@code 1})
+         */
+        private float nudgeToLevel(float pitch) {
+            if (pitch < -20) {
+                return pitch + 1;
+            } else if (pitch > 10) {
+                return pitch - 1;
+            }
+            return pitch;
+        }
+
+        // The game uses rotation = (float) ((double) rotation + delta) so we'll do that as well
+        private float calculateMouseMove(float current, float target) {
+            final double delta = target - current;
+            final double deltaPx = angleToMouse(delta); // yes, even the mouse movements use double
+            return (float) ((double) current + mouseToAngle(deltaPx));
+        }
+
+        private double angleToMouse(double angleDelta) {
+            final double minAngleChange = mouseToAngle(1);
+            return Math.round(angleDelta / minAngleChange);
+        }
+
+        private double mouseToAngle(double mouseDelta) {
+            // casting float literals to double gets us the precise values used by mc
+            final double f = ctx.minecraft().gameSettings.mouseSensitivity * (double) 0.6f + (double) 0.2f;
+            return mouseDelta * f * f * f * 8.0d * 0.15d;
+        }
     }
 
     private static class Target {
