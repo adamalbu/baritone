@@ -58,13 +58,6 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
     @Override
     public void updateTarget(Rotation rotation, boolean blockInteract) {
-        if (!blockInteract) {
-            double rand = Math.random() - 0.5;
-            if (Math.abs(rand) < 0.1) {
-                rand *= 4;
-            }
-            rotation = new Rotation(rotation.getYaw() + (float) (rand * Baritone.settings().randomLooking113.value), rotation.getPitch());
-        }
         this.target = new Target(rotation, blockInteract);
     }
 
@@ -214,8 +207,16 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
         @Override
         public final void tick() {
+            // randomLooking
             this.randomYawOffset = (this.rand.nextDouble() - 0.5) * Baritone.settings().randomLooking.value;
             this.randomPitchOffset = (this.rand.nextDouble() - 0.5) * Baritone.settings().randomLooking.value;
+
+            // randomLooking113
+            double random = this.rand.nextDouble() - 0.5;
+            if (Math.abs(random) < 0.1) {
+                random *= 4;
+            }
+            this.randomYawOffset += random * Baritone.settings().randomLooking113.value;
         }
 
         @Override
