@@ -79,6 +79,7 @@ public class BlockOptionalMetaLookup {
 
     public boolean has(ItemStack stack) {
         int hash = ((IItemStack) (Object) stack).getBaritoneHash();
+        hash -= stack.getDamage();
         return stackHashes.contains(hash);
     }
 

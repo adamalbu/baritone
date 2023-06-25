@@ -39,7 +39,7 @@ public enum BlockById implements IDatatypeFor<Block> {
     public Block get(IDatatypeContext ctx) throws CommandException {
         ResourceLocation id = new ResourceLocation(ctx.getConsumer().getString());
         Block block;
-        if ((block = IRegistry.BLOCK.get(id)) == Blocks.AIR) {
+        if ((block = IRegistry.BLOCK.get(id)) == null) {
             throw new IllegalArgumentException("no block found by that id");
         }
         return block;
