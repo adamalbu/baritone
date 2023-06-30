@@ -124,7 +124,8 @@ public class ToolSet {
         int lowestCost = Integer.MIN_VALUE;
         boolean bestSilkTouch = false;
         IBlockState blockState = b.getDefaultState();
-        for (int i = 0; i < 9; i++) {
+        int maxSlot = Baritone.settings().allowInventory.value ? 36 : 9;
+        for (int i = 0; i < maxSlot; i++) {
             ItemStack itemStack = player.inventory.getStackInSlot(i);
             if (!Baritone.settings().useSwordToMine.value && itemStack.getItem() instanceof ItemSword) {
                 continue;

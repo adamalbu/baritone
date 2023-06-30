@@ -57,13 +57,6 @@ public final class InventoryBehavior extends Behavior implements Helper {
             return;
         }
         ticksSinceLastInventoryMove++;
-        if (firstValidThrowaway() >= 9) { // aka there are none on the hotbar, but there are some in main inventory
-            requestSwapWithHotBar(firstValidThrowaway(), 8);
-        }
-        int pick = bestToolAgainst(Blocks.STONE, ItemPickaxe.class);
-        if (pick >= 9) {
-            requestSwapWithHotBar(pick, 0);
-        }
         if (lastTickRequestedMove != null) {
             logDebug("Remembering to move " + lastTickRequestedMove[0] + " " + lastTickRequestedMove[1] + " from a previous tick");
             requestSwapWithHotBar(lastTickRequestedMove[0], lastTickRequestedMove[1]);
@@ -115,39 +108,6 @@ public final class InventoryBehavior extends Behavior implements Helper {
         ticksSinceLastInventoryMove = 0;
         lastTickRequestedMove = null;
         return true;
-    }
-
-    private int firstValidThrowaway() { // TODO offhand idk
-        NonNullList<ItemStack> invy = ctx.player().inventory.mainInventory;
-        for (int i = 0; i < invy.size(); i++) {
-            if (Baritone.settings().acceptableThrowawayItems.value.contains(invy.get(i).getItem())) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    private int bestToolAgainst(Block against, Class<? extends ItemTool> cla$$) {
-        NonNullList<ItemStack> invy = ctx.player().inventory.mainInventory;
-        int bestInd = -1;
-        double bestSpeed = -1;
-        for (int i = 0; i < invy.size(); i++) {
-            ItemStack stack = invy.get(i);
-            if (stack.isEmpty()) {
-                continue;
-            }
-            if (Baritone.settings().itemSaver.value && (stack.getItemDamage() + Baritone.settings().itemSaverThreshold.value) >= stack.getMaxDamage() && stack.getMaxDamage() > 1) {
-                continue;
-            }
-            if (cla$$.isInstance(stack.getItem())) {
-                double speed = ToolSet.calculateSpeedVsBlock(stack, against.getDefaultState()); // takes into account enchants
-                if (speed > bestSpeed) {
-                    bestSpeed = speed;
-                    bestInd = i;
-                }
-            }
-        }
-        return bestInd;
     }
 
     public boolean hasGenericThrowaway() {

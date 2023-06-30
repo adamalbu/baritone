@@ -593,7 +593,12 @@ public interface MovementHelper extends ActionCosts, Helper {
      */
     static void switchToBestToolFor(IPlayerContext ctx, IBlockState b, ToolSet ts, boolean preferSilkTouch) {
         if (Baritone.settings().autoTool.value && !Baritone.settings().assumeExternalAutoTool.value) {
-            ctx.player().inventory.currentItem = ts.getBestSlot(b.getBlock(), preferSilkTouch);
+            int slot = ts.getBestSlot(b.getBlock(), preferSilkTouch);
+            if (slot < 9) {
+                ctx.player().inventory.currentItem = slot;
+            } else {
+                ((Baritone) BaritoneAPI.getProvider().getBaritoneForPlayer(ctx.player())).getInventoryBehavior().attemptToPutOnHotbar(slot, s -> false);
+            }
         }
     }
 
