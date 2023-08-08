@@ -40,6 +40,7 @@ import net.minecraft.world.level.chunk.PalettedContainer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -56,7 +57,7 @@ public enum FasterWorldScanner implements IWorldScanner {
 
     @Override
     public List<BlockPos> scanChunk(IPlayerContext ctx, BlockOptionalMetaLookup filter, ChunkPos pos, int max, int yLevelThreshold) {
-        Stream<BlockPos> stream = scanChunkInternal(ctx, filter, pos);
+        Stream<BlockPos> stream = scanChunkInternal(ctx, filter, pos, new AtomicInteger(max >= 0 ? max : Integer.MIN_VALUE));
         if (max >= 0) {
             stream = stream.limit(max);
         }
@@ -126,9 +127,10 @@ public enum FasterWorldScanner implements IWorldScanner {
 
     private List<BlockPos> scanChunksInternal(IPlayerContext ctx, BlockOptionalMetaLookup lookup, List<ChunkPos> chunkPositions, int maxBlocks) {
         assert ctx.world() != null;
+        AtomicInteger remainingBlocks = new AtomicInteger(maxBlocks >= 0 ? maxBlocks : Integer.MIN_VALUE);
         try {
             // p -> scanChunkInternal(ctx, lookup, p)
-            Stream<BlockPos> posStream = chunkPositions.parallelStream().flatMap(p -> scanChunkInternal(ctx, lookup, p));
+            Stream<BlockPos> posStream = chunkPositions.stream().flatMap(p -> scanChunkInternal(ctx, lookup, p, remainingBlocks));
             if (maxBlocks >= 0) {
                 // WARNING: this can be expensive if maxBlocks is large...
                 // see limit's javadoc
@@ -141,7 +143,7 @@ public enum FasterWorldScanner implements IWorldScanner {
         }
     }
 
-    private Stream<BlockPos> scanChunkInternal(IPlayerContext ctx, BlockOptionalMetaLookup lookup, ChunkPos pos) {
+    private Stream<BlockPos> scanChunkInternal(IPlayerContext ctx, BlockOptionalMetaLookup lookup, ChunkPos pos, AtomicInteger remainingBlocks) {
         ChunkSource chunkProvider = ctx.world().getChunkSource();
         // if chunk is not loaded, return empty stream
         if (!chunkProvider.hasChunk(pos.x, pos.z)) {
@@ -153,13 +155,16 @@ public enum FasterWorldScanner implements IWorldScanner {
 
         int playerSectionY = ctx.playerFeet().y >> 4;
 
-        return collectChunkSections(lookup, chunkProvider.getChunk(pos.x, pos.z, false), chunkX, chunkZ, playerSectionY).stream();
+        return collectChunkSections(lookup, chunkProvider.getChunk(pos.x, pos.z, false), chunkX, chunkZ, playerSectionY, remainingBlocks).stream();
     }
 
 
 
-    private List<BlockPos> collectChunkSections(BlockOptionalMetaLookup lookup, LevelChunk chunk, long chunkX, long chunkZ, int playerSection) {
-        // iterate over sections relative to player
+    private List<BlockPos> collectChunkSections(BlockOptionalMetaLookup lookup, LevelChunk chunk, long chunkX, long chunkZ, int playerSection, AtomicInteger remainingBlocks) {
+        // decremeting past 0 can make remainingBlocks slightly negative so we use the most negative integer as a sentinel instead of everything < 0
+        boolean limited = remainingBlocks.get() != Integer.MIN_VALUE;
+        int prevSize = 0;
+         // iterate over sections relative to player
         List<BlockPos> blocks = new ArrayList<>();
         int chunkY = chunk.getMinBuildHeight();
         LevelChunkSection[] sections = chunk.getSections();
@@ -172,6 +177,12 @@ public enum FasterWorldScanner implements IWorldScanner {
             }
             if (i >= 0) {
                 visitSection(lookup, sections[i], blocks, chunkX, chunkY + i * 16, chunkZ);
+            }
+            if (limited) {
+                int minusFound = prevSize - (prevSize = blocks.size());
+                if (remainingBlocks.addAndGet(minusFound) <= 0) {
+                    break;
+                }
             }
         }
         return blocks;
