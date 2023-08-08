@@ -130,7 +130,7 @@ public enum FasterWorldScanner implements IWorldScanner {
         AtomicInteger remainingBlocks = new AtomicInteger(maxBlocks >= 0 ? maxBlocks : Integer.MIN_VALUE);
         try {
             // p -> scanChunkInternal(ctx, lookup, p)
-            Stream<BlockPos> posStream = chunkPositions.stream().flatMap(p -> scanChunkInternal(ctx, lookup, p, remainingBlocks));
+            Stream<BlockPos> posStream = chunkPositions.parallelStream().flatMap(p -> scanChunkInternal(ctx, lookup, p, remainingBlocks));
             if (maxBlocks >= 0) {
                 // WARNING: this can be expensive if maxBlocks is large...
                 // see limit's javadoc
