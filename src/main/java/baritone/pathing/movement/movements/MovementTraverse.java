@@ -150,9 +150,13 @@ public class MovementTraverse extends Movement {
                         return WC + placeCost + hardness1 + hardness2;
                     }
                 }
+                if (pb1.getBlock() instanceof SlabBlock) {
+                    // standing on/in a slab, we can place another slab (if we have one, lol)
+                    return WC + placeCost + hardness1 + hardness2;
+                }
                 // now that we've checked all possible directions to side place, we actually need to backplace
-                if (srcDownBlock == Blocks.SOUL_SAND || (srcDownBlock instanceof SlabBlock && srcDown.getValue(SlabBlock.TYPE) != SlabType.DOUBLE)) {
-                    return COST_INF; // can't sneak and backplace against soul sand or half slabs (regardless of whether it's top half or bottom half) =/
+                if (srcDownBlock == Blocks.SOUL_SAND) {
+                    return COST_INF; // can't sneak and backplace against soul sand =/
                 }
                 if (!standingOnABlock) { // standing on water / swimming
                     return COST_INF; // this is obviously impossible
@@ -243,14 +247,6 @@ public class MovementTraverse extends Movement {
 
         boolean isTheBridgeBlockThere = MovementHelper.canWalkOn(ctx, positionToPlace) || ladder || MovementHelper.canUseFrostWalker(ctx, positionToPlace);
         BlockPos feet = ctx.playerFeet();
-        if (feet.getY() != dest.getY() && !ladder) {
-            logDebug("Wrong Y coordinate");
-            if (feet.getY() < dest.getY()) {
-                System.out.println("In movement traverse");
-                return state.setInput(Input.JUMP, true);
-            }
-            return state;
-        }
 
         if (isTheBridgeBlockThere) {
             if (feet.equals(dest)) {
@@ -287,7 +283,7 @@ public class MovementTraverse extends Movement {
         } else {
             wasTheBridgeBlockAlwaysThere = false;
             Block standingOn = BlockStateInterface.get(ctx, feet.below()).getBlock();
-            if (standingOn.equals(Blocks.SOUL_SAND) || standingOn instanceof SlabBlock) { // see issue #118
+            if (standingOn.equals(Blocks.SOUL_SAND)) { // see issue #118
                 double dist = Math.max(Math.abs(dest.getX() + 0.5 - ctx.player().position().x), Math.abs(dest.getZ() + 0.5 - ctx.player().position().z));
                 if (dist < 0.85) { // 0.5 + 0.3 + epsilon
                     MovementHelper.moveTowards(ctx, state, dest);
@@ -296,7 +292,8 @@ public class MovementTraverse extends Movement {
                 }
             }
             double dist1 = Math.max(Math.abs(ctx.player().position().x - (dest.getX() + 0.5D)), Math.abs(ctx.player().position().z - (dest.getZ() + 0.5D)));
-            PlaceResult p = MovementHelper.attemptToPlaceABlock(state, baritone, dest.below(), false, true);
+            BetterBlockPos whereToPlace = BlockStateInterface.get(ctx, feet).getBlock() instanceof SlabBlock ? dest : dest.below();
+            PlaceResult p = MovementHelper.attemptToPlaceABlock(state, baritone, whereToPlace, false, true);
             if ((p == PlaceResult.READY_TO_PLACE || dist1 < 0.6) && !Baritone.settings().assumeSafeWalk.value) {
                 state.setInput(Input.SNEAK, true);
             }
