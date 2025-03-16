@@ -76,6 +76,10 @@ public final class FollowProcess extends BaritoneProcessHelper implements IFollo
         if (entity.equals(ctx.player())) {
             return false;
         }
+        int maxDist = Baritone.settings().followTargetMaxDistance.value;
+        if (maxDist != 0 && entity.distanceToSqr(ctx.player()) > maxDist * maxDist) {
+            return false;
+        }
         return ctx.entitiesStream().anyMatch(entity::equals);
     }
 
