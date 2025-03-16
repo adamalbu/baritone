@@ -29,6 +29,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.awt.*;
 import java.lang.annotation.ElementType;
@@ -50,6 +55,7 @@ import java.util.function.Consumer;
  * @author leijurv
  */
 public final class Settings {
+    private static final Logger LOGGER = LoggerFactory.getLogger("Baritone");
 
     /**
      * Allow Baritone to break blocks
@@ -70,6 +76,16 @@ public final class Settings {
      * Allow Baritone to place blocks
      */
     public final Setting<Boolean> allowPlace = new Setting<>(true);
+
+    /**
+     * Allow Baritone to place blocks in fluid source blocks
+     */
+    public final Setting<Boolean> allowPlaceInFluidsSource = new Setting<>(true);
+
+    /**
+     * Allow Baritone to place blocks in flowing fluid
+     */
+    public final Setting<Boolean> allowPlaceInFluidsFlow = new Setting<>(true);
 
     /**
      * Allow Baritone to move items in your inventory to your hotbar
@@ -381,6 +397,12 @@ public final class Settings {
      * Block reach distance
      */
     public final Setting<Float> blockReachDistance = new Setting<>(4.5f);
+
+    /**
+     * How many ticks between breaking a block and starting to break the next block. Default in game is 6 ticks.
+     * Values under 1 will be clamped. The delay only applies to non-instant (1-tick) breaks.
+     */
+    public final Setting<Integer> blockBreakSpeed = new Setting<>(6);
 
     /**
      * How many degrees to randomize the pitch and yaw every tick. Set to 0 to disable
@@ -901,6 +923,13 @@ public final class Settings {
     public final Setting<Integer> maxCachedWorldScanCount = new Setting<>(10);
 
     /**
+     * Mine will not scan for or remember more than this many target locations.
+     * Note that the number of locations retrieved from cache is additionaly
+     * limited by {@link #maxCachedWorldScanCount}.
+     */
+    public final Setting<Integer> mineMaxOreLocationsCount = new Setting<>(64);
+
+    /**
      * Sets the minimum y level whilst mining - set to 0 to turn off.
      * if world has negative y values, subtract the min world height to get the value to put here
      */
@@ -956,6 +985,11 @@ public final class Settings {
      * Replant nether wart while farming. This setting only has an effect when replantCrops is also enabled
      */
     public final Setting<Boolean> replantNetherWart = new Setting<>(false);
+
+    /**
+     * Farming will scan for at most this many blocks.
+     */
+    public final Setting<Integer> farmMaxScanSize = new Setting<>(256);
 
     /**
      * When the cache scan gives less blocks than the maximum threshold (but still above zero), scan the main world too.
@@ -1049,6 +1083,11 @@ public final class Settings {
     public final Setting<Double> breakCorrectBlockPenaltyMultiplier = new Setting<>(10d);
 
     /**
+     * Multiply the cost of placing a block that's incorrect in the builder's schematic by this coefficient
+     */
+    public final Setting<Double> placeIncorrectBlockPenaltyMultiplier = new Setting<>(2d);
+
+    /**
      * When this setting is true, build a schematic with the highest X coordinate being the origin, instead of the lowest
      */
     public final Setting<Boolean> schematicOrientationX = new Setting<>(false);
@@ -1062,6 +1101,28 @@ public final class Settings {
      * When this setting is true, build a schematic with the highest Z coordinate being the origin, instead of the lowest
      */
     public final Setting<Boolean> schematicOrientationZ = new Setting<>(false);
+
+    /**
+     * Rotates the schematic before building it.
+     * Possible values are
+     * <ul>
+     *  <li> NONE - No rotation </li>
+     *  <li> CLOCKWISE_90 - Rotate 90° clockwise </li>
+     *  <li> CLOCKWISE_180 - Rotate 180° clockwise </li>
+     *  <li> COUNTERCLOCKWISE_90 - Rotate 270° clockwise </li>
+     * </ul>
+     */
+    public final Setting<Rotation> buildSchematicRotation = new Setting<>(Rotation.NONE);
+
+    /**
+     * Mirrors the schematic before building it.
+     * Possible values are
+     * <ul>
+     *  <li> FRONT_BACK - mirror the schematic along its local x axis </li>
+     *  <li> LEFT_RIGHT - mirror the schematic along its local z axis </li>
+     * </ul>
+     */
+    public final Setting<Mirror> buildSchematicMirror = new Setting<>(Mirror.NONE);
 
     /**
      * The fallback used by the build command when no extension is specified. This may be useful if schematics of a
@@ -1175,6 +1236,11 @@ public final class Settings {
     public final Setting<Integer> followRadius = new Setting<>(3);
 
     /**
+     * The maximum distance to the entity you're following
+     */
+    public final Setting<Integer> followTargetMaxDistance = new Setting<>(0);
+
+    /**
      * Turn this on if your exploration filter is enormous, you don't want it to check if it's done,
      * and you are just fine with it just hanging on completion
      */
@@ -1209,8 +1275,12 @@ public final class Settings {
      */
     @JavaOnly
     public final Setting<Consumer<Component>> logger = new Setting<>((msg) -> {
-        final GuiMessageTag tag = useMessageTag.value ? Helper.MESSAGE_TAG : null;
-        Minecraft.getInstance().gui.getChat().addMessage(msg, null, tag);
+        try {
+            final GuiMessageTag tag = useMessageTag.value ? Helper.MESSAGE_TAG : null;
+            Minecraft.getInstance().gui.getChat().addMessage(msg, null, tag);
+        } catch (Throwable t) {
+            LOGGER.warn("Failed to log message to chat: " + msg.getString(), t);
+        }
     });
 
     /**
@@ -1467,6 +1537,11 @@ public final class Settings {
      * Has the user read and understood the elytra terms and conditions
      */
     public final Setting<Boolean> elytraTermsAccepted = new Setting<>(false);
+
+    /**
+     * Verbose chat logging in elytra mode
+     */
+    public final Setting<Boolean> elytraChatSpam = new Setting<>(false);
 
     /**
      * A map of lowercase setting field names to their respective setting
