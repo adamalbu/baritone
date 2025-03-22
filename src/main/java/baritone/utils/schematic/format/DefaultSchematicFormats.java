@@ -22,14 +22,16 @@ import baritone.api.schematic.format.ISchematicFormat;
 import baritone.utils.schematic.format.defaults.LitematicaSchematic;
 import baritone.utils.schematic.format.defaults.MCEditSchematic;
 import baritone.utils.schematic.format.defaults.SpongeSchematic;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
 import org.apache.commons.io.FilenameUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtIo;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Default implementations of {@link ISchematicFormat}
@@ -98,5 +100,10 @@ public enum DefaultSchematicFormats implements ISchematicFormat {
     @Override
     public boolean isFileType(File file) {
         return this.extension.equalsIgnoreCase(FilenameUtils.getExtension(file.getAbsolutePath()));
+    }
+
+    @Override
+    public List<String> getFileExtensions() {
+        return Collections.singletonList(this.extension);
     }
 }

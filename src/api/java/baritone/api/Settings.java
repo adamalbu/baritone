@@ -78,6 +78,16 @@ public final class Settings {
     public final Setting<Boolean> allowPlace = new Setting<>(true);
 
     /**
+     * Allow Baritone to place blocks in fluid source blocks
+     */
+    public final Setting<Boolean> allowPlaceInFluidsSource = new Setting<>(true);
+
+    /**
+     * Allow Baritone to place blocks in flowing fluid
+     */
+    public final Setting<Boolean> allowPlaceInFluidsFlow = new Setting<>(true);
+
+    /**
      * Allow Baritone to move items in your inventory to your hotbar
      */
     public final Setting<Boolean> allowInventory = new Setting<>(false);
@@ -1224,6 +1234,11 @@ public final class Settings {
      * The radius (for the GoalNear) of how close to your target position you actually have to be
      */
     public final Setting<Integer> followRadius = new Setting<>(3);
+
+    /**
+     * The maximum distance to the entity you're following
+     */
+    public final Setting<Integer> followTargetMaxDistance = new Setting<>(0);
 
     /**
      * Turn this on if your exploration filter is enormous, you don't want it to check if it's done,

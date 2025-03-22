@@ -161,6 +161,12 @@ public class CalculationContext {
         if (!worldBorder.canPlaceAt(x, z)) {
             return COST_INF;
         }
+        if (!Baritone.settings().allowPlaceInFluidsSource.value && current.getFluidState().isSource()) {
+            return COST_INF;
+        }
+        if (!Baritone.settings().allowPlaceInFluidsFlow.value && !current.getFluidState().isEmpty() && !current.getFluidState().isSource()) {
+            return COST_INF;
+        }
         return placeBlockCost;
     }
 
